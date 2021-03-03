@@ -6,20 +6,20 @@ using System.Threading.Tasks;
 
 namespace ClipboardGapWpf.Formats
 {
-    class TextAnsi : IFormatHandleReader<string>, IFormatWriter<string>
+    class TextAnsi : IDataHandleReader<string>, IDataHandleWriter<string>
     {
-        public unsafe int GetByteSize(string data)
+        public unsafe int GetDataSize(string data)
         {
             int size = NativeMethods.WideCharToMultiByte(0 /*CP_ACP*/, 0, data, data.Length, null, 0, IntPtr.Zero, IntPtr.Zero);
             return size + 1;
         }
 
-        public unsafe string ReadFromHandle(IntPtr ptr)
+        public unsafe string ReadFromHandle(IntPtr ptr, int memSize)
         {
             return new string((sbyte*)ptr);
         }
 
-        public void SaveToHandle(string str, IntPtr ptr)
+        public void WriteToHandle(string str, IntPtr ptr)
         {
             int pinvokeSize = NativeMethods.WideCharToMultiByte(0 /*CP_ACP*/, 0, str, str.Length, null, 0, IntPtr.Zero, IntPtr.Zero);
             byte[] strBytes = new byte[pinvokeSize];

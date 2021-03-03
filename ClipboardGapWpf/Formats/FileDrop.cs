@@ -8,13 +8,13 @@ using System.Threading.Tasks;
 
 namespace ClipboardGapWpf.Formats
 {
-    class FileDrop : IFormatHandleReader<string[]>, IFormatWriter<string[]>
+    class FileDrop : IDataHandleReader<string[]>, IDataHandleWriter<string[]>
     {
         const int PATH_MAX_LEN = 260;
         const int PATH_LONG_MAX_LEN = short.MaxValue;
         const int baseStructSize = 4 + 8 + 4 + 4;
 
-        public string[] ReadFromHandle(IntPtr hdrop)
+        public string[] ReadFromHandle(IntPtr hdrop, int memSize)
         {
             string[] files = null;
             StringBuilder sb = new StringBuilder(PATH_MAX_LEN);
@@ -70,7 +70,7 @@ namespace ClipboardGapWpf.Formats
             }
         }
 
-        public int GetByteSize(string[] files)
+        public int GetDataSize(string[] files)
         {
             bool unicode = (Marshal.SystemDefaultCharSize != 1);
             int sizeInBytes = baseStructSize;
@@ -137,7 +137,7 @@ namespace ClipboardGapWpf.Formats
             }
         }
 
-        public void SaveToHandle(string[] files, IntPtr currentPtr)
+        public void WriteToHandle(string[] files, IntPtr currentPtr)
         {
             //if (files == null)
             //{

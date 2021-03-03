@@ -11,7 +11,7 @@ namespace ClipboardGapWpf
     {
         public static byte[] ReadAllBytes(this Stream stream)
         {
-            byte[] buffer = new byte[32768];
+            byte[] buffer = new byte[4096];
             using (MemoryStream ms = new MemoryStream())
             {
                 while (true)

@@ -12,8 +12,6 @@ using IComDataObject = System.Runtime.InteropServices.ComTypes.IDataObject;
 
 namespace ClipboardGapWpf
 {
-
-
     public interface IClipboardDataObject
     {
         bool ContainsImage();
@@ -25,9 +23,10 @@ namespace ClipboardGapWpf
         void SetText(string text);
         void SetFileDropList(string[] files);
 
-        //TImage GetImage();
+        BitmapSource GetImage();
         string GetText();
         string[] GetFileDropList();
+
         //TAudio GetAudio();
 
         //void SetDataFormat<TO>(ClipboardFormat fmt, TO data, IFormatWriter<TO> writer) { }
@@ -48,27 +47,33 @@ namespace ClipboardGapWpf
         private readonly IComDataObject _data;
         private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1, 1);
 
-        //private const string DATAFORMAT_PNG = "PNG";
-        //private const string DATAFORMAT_PNG_OFFICEART = "PNG+Office Art";
-        //private const string DATAFORMAT_V5BITMAP = "Format17";
-        //private const string DATAFORMAT_DIB = "DeviceIndependentBitmap";
-        //private const string DATAFORMAT_JPG = "JPG";
-        //private const string DATAFORMAT_JPEG = "JPEG";
-        //private const string DATAFORMAT_JFIF = "JFIF";
-        //private const string DATAFORMAT_GIF = "GIF";
-        //private const string DATAFORMAT_TIFF = "TaggedImageFileFormat";
-        //private const string DATAFORMAT_JFIF_OFFICEART = "JFIF+Office Art";
-        //private const string DATAFORMAT_BITMAP = "System.Drawing.Bitmap";
-        //private const string DATAFORMAT_BITMAPSOURCE = "System.Windows.Media.Imaging.BitmapSource";
-
         static ClipboardDataObject()
         {
 
         }
 
+        public ClipboardDataObject() : this(new MyDataObject())
+        {
+            EnsureSTA();
+        }
+
         private ClipboardDataObject(IComDataObject data)
         {
             this._data = data;
+        }
+
+        private static void EnsureSTA()
+        {
+            if (Thread.CurrentThread.GetApartmentState() != ApartmentState.STA)
+                throw new InvalidOperationException("Calling thread must be marked STA (Single-Threaded-Apartment).");
+        }
+
+        public static void SetConsoleOnlyMode()
+        {
+            EnsureSTA();
+            var hr = NativeMethods.OleInitialize(IntPtr.Zero);
+            if (hr < 0)
+                Marshal.ThrowExceptionForHR(hr);
         }
 
         public static ClipboardDataObject GetCurrentClipboard()
@@ -89,86 +94,125 @@ namespace ClipboardGapWpf
             return OleUtil.EnumFormatsInDataObject(_data).Select(ClipboardFormat.GetFormat);
         }
 
+        public void SetImage(BitmapSource image)
+        {
+            SetData(ClipboardFormat.Png, image);
+            SetData(ClipboardFormat.Dib, image);
+        }
+
         public BitmapSource GetImage()
         {
-            var readers = new FormatSet<BitmapSource>()
-            {
-                { ClipboardFormat.Png, new ImageWpfPng() },
-                { ClipboardFormat.DIBV5, new ImageWpfDibV5() },
-                { ClipboardFormat.DIB, new ImageWpfDibV5() },
-                { ClipboardFormat.FileDrop, new ImageWpfFileDrop() },
-            };
+            return GetAnyDataOfType<BitmapSource>();
+        }
 
-            return GetData(readers);
+        public void SetText(string text)
+        {
+            // CF_UNICODETEXT will be automatically converted to CF_OEMTEXT, CF_TEXT, CF_LOCALE by the system
+            SetData(ClipboardFormat.UnicodeText, text);
         }
 
         public string GetText()
         {
-            var readers = new FormatSet<string>()
-            {
-                { ClipboardFormat.UnicodeText, new TextUnicode() },
-                { ClipboardFormat.Text, new TextAnsi() },
-                { ClipboardFormat.Rtf, new TextAnsi() },
-                { ClipboardFormat.OemText, new TextAnsi() },
-                { ClipboardFormat.Html, new TextAnsi() },
-            };
+            // we try to retrieve our preferred format first
+            var unicode = GetDataFromFormat<string>(ClipboardFormat.UnicodeText);
+            if (unicode != null)
+                return unicode;
 
-            return GetData(readers);
+            // check other common formats
+            var other = GetDataFromFormat<string>(ClipboardFormat.UnicodeText);
+            if (other != null)
+                return other;
+
+            // fallback to any available string data
+            return GetAnyDataOfType<string>();
         }
 
         public string[] GetFileDropList()
         {
-            var formats = OleUtil.EnumFormatsInDataObject(_data).ToDictionary(f => f.cfFormat, f => f);
+            //var effect = GetDataFromFormat<System.Windows.DragDropEffects>(ClipboardFormat.DropEffect);
 
-            if (formats.TryGetValue(ClipboardFormat.FileDrop.Id, out var fmtDrop))
-            {
-                return OleUtil.GetOleData(_data, fmtDrop.cfFormat, new FileDrop());
-            }
+            var drop = GetDataFromFormat<string[]>(ClipboardFormat.FileDrop);
+            if (drop != null)
+                return drop;
 
-            var legacyFile = GetData(new FormatSet<string>() {
-        #pragma warning disable CS0612 // Type or member is obsolete
-                { ClipboardFormat.FileName, new TextAnsi() },
-                { ClipboardFormat.FileNameW, new TextUnicode() },
-        #pragma warning restore CS0612 // Type or member is obsolete
-            });
-
-            if (!String.IsNullOrEmpty(legacyFile))
-                return new string[] { legacyFile };
+#pragma warning disable CS0612 // Type or member is obsolete
+            var legacy = GetDataFromFormat<string>(ClipboardFormat.FileName, ClipboardFormat.FileNameW);
+            if (legacy != null)
+                return new[] { legacy };
+#pragma warning restore CS0612 // Type or member is obsolete
 
             return null;
         }
 
-        private T GetData<T>(FormatSet<T> lookup) where T : class
+        public void SetFileDropList(string[] dropList)
         {
-            var formats = OleUtil.EnumFormatsInDataObject(_data).ToDictionary(f => f.cfFormat, f => f);
+            SetData(ClipboardFormat.FileDrop, dropList);
+        }
 
-            foreach (var p in lookup)
+        private void SetData<T>(ClipboardFormat format, T obj)
+        {
+            if (_data is MyDataObject my)
             {
-                if (formats.TryGetValue(p.Format.Id, out var fmt))
+                var writers = format.GetWritersForType<T>();
+                if (writers == null || !writers.Any())
+                    throw new NotSupportedException($"Unable to set data: No converters available for format '{format.Name}' and type '{typeof(T).FullName}'.");
+                my.SetFormat<T>(format, obj, writers.First());
+            }
+            else
+            {
+                throw new NotSupportedException("Please create a new clipboard object via the empty constructor before trying to set data.");
+            }
+        }
+
+        private T GetDataFromFormat<T>(params ClipboardFormat[] formats) where T : class
+        {
+            var presentFormats = OleUtil.EnumFormatsInDataObject(_data).ToDictionary(f => f.cfFormat, f => f);
+            var matchFound = false;
+
+            foreach (var pf in formats)
+            {
+                if (presentFormats.TryGetValue(pf.Id, out var cpb))
                 {
-                    var value = OleUtil.GetOleData<T>(_data, fmt.cfFormat, p.Reader);
-                    if (value != null)
-                    {
-                        var cl = ClipboardFormat.GetFormat(fmt.cfFormat);
-                        return value;
-                    }
+                    matchFound = true;
+                    var readers = pf.GetReadersForType<T>();
+
+                    if (readers.Any())
+                        return OleUtil.GetOleData<T>(_data, pf.Id, readers.First());
                 }
             }
 
-            return null;
+            if (matchFound)
+                throw new NotSupportedException($"One or more of the requested formats were on the clipboard, but there was no available conversion to type '{typeof(T).FullName}'.");
+
+            return default;
         }
 
-        //public void SetData(string format, object data)
-        //{
-        //    //SetData(format, data, true, DVASPECT.DVASPECT_CONTENT, 0)
-        //}
+        private T GetAnyDataOfType<T>() where T : class
+        {
+            if (_data is MyDataObject my)
+            {
+                var co = my.GetEntryType<T>();
+                if (co != null)
+                    return co;
+            }
 
-        //public BitmapSource GetImage()
-        //{
-        //    EnumFORMATETC
-        //    _data.EnumFormatEtc
-        //    _data.GetData()
-        //}
+            var possibleFormats = ClipboardFormat.Formats
+                .Select(f => new { Format = f, Readers = f.GetReadersForType<T>() })
+                .Where(f => f.Readers.Any())
+                .ToDictionary(f => f.Format.Id, f => f);
+
+            var presentFormats = OleUtil.EnumFormatsInDataObject(_data).ToDictionary(f => f.cfFormat, f => f);
+
+            foreach (var f in presentFormats)
+            {
+                if (possibleFormats.TryGetValue(f.Key, out var cpb))
+                {
+                    return OleUtil.GetOleData<T>(_data, f.Key, cpb.Readers.First());
+                }
+            }
+
+            return default;
+        }
 
         public void SetToClipboard()
         {

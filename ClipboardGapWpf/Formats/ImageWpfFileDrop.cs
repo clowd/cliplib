@@ -8,7 +8,7 @@ using System.Windows.Media.Imaging;
 
 namespace ClipboardGapWpf.Formats
 {
-    class ImageWpfFileDrop : IFormatHandleReader<BitmapSource>
+    class ImageWpfFileDrop : IDataHandleReader<BitmapSource>
     {
         private static string[] _knownImageExt = new[]
         {
@@ -16,10 +16,10 @@ namespace ClipboardGapWpf.Formats
             ".gif", ".tif", ".tiff", ".ico"
         };
 
-        public BitmapSource ReadFromHandle(IntPtr ptr)
+        public BitmapSource ReadFromHandle(IntPtr ptr, int memSize)
         {
             var reader = new FileDrop();
-            var fileDropList = reader.ReadFromHandle(ptr);
+            var fileDropList = reader.ReadFromHandle(ptr, memSize);
 
             // if - there is a single file in the file drop list
             //    - the file in the file drop list is an image (file name ends with image extension)

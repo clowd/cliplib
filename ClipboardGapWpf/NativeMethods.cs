@@ -21,7 +21,9 @@ namespace ClipboardGapWpf
             E_FAIL = unchecked((int)0x80004005),
             E_ABORT = unchecked((int)0x80004004),
             E_ACCESSDENIED = unchecked((int)0x80070005),
-            E_UNEXPECTED = unchecked((int)0x8000FFFF);
+            E_UNEXPECTED = unchecked((int)0x8000FFFF),
+            CO_E_UNINITIALIZED = -2147221008,
+            CLIPBRD_E_CANT_OPEN = -2147221040;
 
         public const int GMEM_MOVEABLE = 0x0002;
         public const int GMEM_ZEROINIT = 0x0040;
@@ -29,6 +31,9 @@ namespace ClipboardGapWpf
 
         [DllImport("shell32.dll", CharSet = CharSet.Auto)]
         public static extern int DragQueryFile(HandleRef hDrop, int iFile, StringBuilder lpszFile, int cch);
+
+        [DllImport("ole32.dll")]
+        public static extern int OleInitialize(IntPtr pvReserved);
 
         [DllImport("ole32.dll", ExactSpelling = true, CharSet = CharSet.Auto)]
         public static extern int OleGetClipboard(ref IComDataObject data);

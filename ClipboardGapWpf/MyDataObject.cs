@@ -1,6 +1,7 @@
 ﻿using ClipboardGapWpf.Formats;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
@@ -12,28 +13,31 @@ namespace ClipboardGapWpf
 {
     interface IDataStoreEntry : IDisposable
     {
-        FORMATETC Format { get; }
-        DATADIR Direction { get; }
+        //bool IsStream { get; }
+        //FORMATETC Format { get; }
+        //DATADIR Direction { get; }
         void SaveToHandle(IntPtr ptr);
         int GetSize();
     }
 
     class ManagedDataStoreEntry<T> : IDataStoreEntry
     {
-        public FORMATETC Format { get; }
+        //public FORMATETC Format { get; }
 
-        public DATADIR Direction { get; }
+        //public DATADIR Direction { get; }
 
         public T Data { get; }
 
         public bool OwnsData { get; }
 
-        public IFormatWriter<T> Writer { get; }
+        public IDataWriter<T> Writer { get; }
 
-        public ManagedDataStoreEntry(FORMATETC format, DATADIR dir, T data, bool ownsData, IFormatWriter<T> writer)
+        private byte[] _streamCache;
+
+        public ManagedDataStoreEntry(T data, bool ownsData, IDataWriter<T> writer)
         {
-            Format = format;
-            Direction = dir;
+            //Format = format;
+            //Direction = dir;
             Data = data;
             OwnsData = ownsData;
             Writer = writer;
@@ -66,66 +70,108 @@ namespace ClipboardGapWpf
 
         public void SaveToHandle(IntPtr ptr)
         {
-            Writer.SaveToHandle(Data, ptr);
-        }
+            if (disposed)
+                throw new ObjectDisposedException(nameof(IDataStoreEntry));
 
-        public int GetSize()
-        {
-            throw new NotImplementedException();
-        }
-    }
-
-    class NativeDataStoreEntry : IDataStoreEntry
-    {
-        public FORMATETC Format { get; }
-
-        public DATADIR Direction { get; }
-
-        public IntPtr DataHGlobal { get; private set; }
-
-        private bool disposed = false;
-
-        public NativeDataStoreEntry(FORMATETC format, DATADIR dir, IntPtr hglobal)
-        {
-            Format = format;
-            Direction = dir;
-            DataHGlobal = hglobal;
-        }
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (!disposed)
+            if (Writer is IDataStreamWriter<T> streamWriter)
             {
-                Marshal.FreeHGlobal(DataHGlobal);
-                DataHGlobal = IntPtr.Zero;
-                disposed = true;
+                var buffer = GetStreamBytes(streamWriter);
+                Marshal.Copy(buffer, 0, ptr, buffer.Length);
+            }
+            else if (Writer is IDataHandleWriter<T> handleWriter)
+            {
+                handleWriter.WriteToHandle(Data, ptr);
+            }
+            else
+            {
+                throw new ArgumentOutOfRangeException(nameof(Writer));
             }
         }
 
-        ~NativeDataStoreEntry()
-        {
-            Dispose(false);
-        }
-
-        public void Dispose()
-        {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-
-        public void SaveToHandle(IntPtr ptr)
-        {
-            throw new NotImplementedException();
-        }
-
         public int GetSize()
         {
-            throw new NotImplementedException();
+            if (disposed)
+                throw new ObjectDisposedException(nameof(IDataStoreEntry));
+
+            if (Writer is IDataStreamWriter<T> streamWriter)
+            {
+                var buffer = GetStreamBytes(streamWriter);
+                return buffer.Length;
+            }
+            else if (Writer is IDataHandleWriter<T> handleWriter)
+            {
+                return handleWriter.GetDataSize(Data);
+            }
+            else
+            {
+                throw new ArgumentOutOfRangeException(nameof(Writer));
+            }
+        }
+
+        private byte[] GetStreamBytes(IDataStreamWriter<T> writer)
+        {
+            if (_streamCache == null)
+            {
+                var ms = new MemoryStream();
+                writer.WriteToStream(Data, ms);
+                _streamCache = ms.GetBuffer();
+            }
+
+            return _streamCache;
         }
     }
 
+    //class NativeDataStoreEntry : IDataStoreEntry
+    //{
+    //    public FORMATETC Format { get; }
 
-    class MyDataStore : IDataObject
+    //    public DATADIR Direction { get; }
+
+    //    public IntPtr DataHGlobal { get; private set; }
+
+    //    private bool disposed = false;
+
+    //    public NativeDataStoreEntry(FORMATETC format, DATADIR dir, IntPtr hglobal)
+    //    {
+    //        Format = format;
+    //        Direction = dir;
+    //        DataHGlobal = hglobal;
+    //    }
+
+    //    protected virtual void Dispose(bool disposing)
+    //    {
+    //        if (!disposed)
+    //        {
+    //            Marshal.FreeHGlobal(DataHGlobal);
+    //            DataHGlobal = IntPtr.Zero;
+    //            disposed = true;
+    //        }
+    //    }
+
+    //    ~NativeDataStoreEntry()
+    //    {
+    //        Dispose(false);
+    //    }
+
+    //    public void Dispose()
+    //    {
+    //        Dispose(true);
+    //        GC.SuppressFinalize(this);
+    //    }
+
+    //    public void SaveToHandle(IntPtr ptr)
+    //    {
+    //        throw new NotImplementedException();
+    //    }
+
+    //    public int GetSize()
+    //    {
+    //        throw new NotImplementedException();
+    //    }
+    //}
+
+
+    class MyDataObject : IDataObject
     {
         private const int DV_E_FORMATETC = unchecked((int)0x80040064);
         private const int DV_E_LINDEX = unchecked((int)0x80040068);
@@ -134,16 +180,31 @@ namespace ClipboardGapWpf
         private const int OLE_E_NOTRUNNING = unchecked((int)0x80040005);
         private const int OLE_E_ADVISENOTSUPPORTED = unchecked((int)0x80040003);
         private const int DATA_S_SAMEFORMATETC = 0x00040130;
+        private const int STG_E_MEDIUMFULL = unchecked((int)0x80030070);
 
         private Dictionary<short, IDataStoreEntry> _entries = new Dictionary<short, IDataStoreEntry>();
 
         private static readonly TYMED[] ALLOWED_TYMEDS = new TYMED[] {
             TYMED.TYMED_HGLOBAL,
-            TYMED.TYMED_ISTREAM,
-            TYMED.TYMED_ENHMF,
-            TYMED.TYMED_MFPICT,
-            TYMED.TYMED_GDI
+            //TYMED.TYMED_ISTREAM,
+            //TYMED.TYMED_ENHMF,
+            //TYMED.TYMED_MFPICT,
+            //TYMED.TYMED_GDI
         };
+
+        public void SetFormat<T>(ClipboardFormat format, T obj, IDataWriter<T> writer)
+        {
+            _entries[format.Id] = new ManagedDataStoreEntry<T>(obj, false, writer);
+        }
+
+        public T GetEntryType<T>()
+        {
+            return _entries
+                .Select(e => e.Value as ManagedDataStoreEntry<T>)
+                .Where(e => e != null)
+                .Select(e => e.Data)
+                .FirstOrDefault();
+        }
 
         private bool GetTymedUseable(TYMED tymed)
         {
@@ -157,72 +218,73 @@ namespace ClipboardGapWpf
             return false;
         }
 
-        public void GetData(ref FORMATETC formatetc, out STGMEDIUM medium)
+        void IDataObject.GetData(ref FORMATETC formatetc, out STGMEDIUM medium)
         {
-            medium = new STGMEDIUM();
-            medium.tymed =
-            GetDataHere(formatetc, medium);
+            Console.WriteLine($"GetData ({ClipboardFormat.GetFormat(formatetc.cfFormat)})");
+            if (formatetc.dwAspect != DVASPECT.DVASPECT_CONTENT)
+                Marshal.ThrowExceptionForHR(DV_E_DVASPECT);
 
-            if (_entries.TryGetValue(formatetc.cfFormat, out var match))
-            {
-
-            }
-
-            // no match found
-            Marshal.ThrowExceptionForHR(DV_E_FORMATETC);
-
-            // end
-
-            foreach (var entry in _entries)
-            {
-                if (entry.Format.cfFormat == formatetc.cfFormat)
-                {
-                    medium.tymed = entry.Format.tymed;
-                    medium.unionmember = OleUtil.CopyHGlobal(entry.DataHGlobal);
-                }
-            }
-
-            if (GetTymedUseable(formatetc.tymed))
-            {
-                if ((formatetc.tymed & TYMED.TYMED_HGLOBAL) != 0)
-                {
-                    medium.tymed = TYMED.TYMED_HGLOBAL;
-                    medium.unionmember = NativeMethods.GlobalAlloc(NativeMethods.GMEM_MOVEABLE | NativeMethods.GMEM_ZEROINIT, 1);
-
-                    if (medium.unionmember == IntPtr.Zero)
-                    {
-                        throw new OutOfMemoryException();
-                    }
-
-                    try
-                    {
-                        GetDataHere(ref formatetc, ref medium);
-                    }
-                    catch
-                    {
-                        UnsafeNativeMethods.GlobalFree(new HandleRef(medium, medium.unionmember));
-                        medium.unionmember = IntPtr.Zero;
-                        throw;
-                    }
-                }
-                else
-                {
-                    medium.tymed = formatetc.tymed;
-                    GetDataHere(ref formatetc, ref medium);
-                }
-            }
-            else
-            {
+            if (!GetTymedUseable(formatetc.tymed))
                 Marshal.ThrowExceptionForHR(DV_E_TYMED);
+
+            if (formatetc.cfFormat == 0)
+                Marshal.ThrowExceptionForHR(NativeMethods.S_FALSE);
+
+            if (!_entries.TryGetValue(formatetc.cfFormat, out var match))
+                Marshal.ThrowExceptionForHR(DV_E_FORMATETC);
+
+            var dataSize = match.GetSize();
+
+            medium = new STGMEDIUM();
+            medium.tymed = TYMED.TYMED_HGLOBAL;
+            medium.unionmember = NativeMethods.GlobalAlloc(NativeMethods.GMEM_MOVEABLE | NativeMethods.GMEM_ZEROINIT, dataSize);
+
+            try
+            {
+                (this as IDataObject).GetDataHere(ref formatetc, ref medium);
+            }
+            catch
+            {
+                // only if we failed to write data, free memory - else will be freed by the caller.
+                NativeMethods.GlobalFree(medium.unionmember);
             }
         }
 
-        public void GetDataHere(ref FORMATETC format, ref STGMEDIUM medium)
+        void IDataObject.GetDataHere(ref FORMATETC formatetc, ref STGMEDIUM medium)
         {
-            GetDataIntoOleStructs(ref formatetc, ref medium);
+            Console.WriteLine($"GetDataHere ({ClipboardFormat.GetFormat(formatetc.cfFormat)})");
+            if (formatetc.dwAspect != DVASPECT.DVASPECT_CONTENT)
+                Marshal.ThrowExceptionForHR(DV_E_DVASPECT);
+
+            if (!GetTymedUseable(formatetc.tymed))
+                Marshal.ThrowExceptionForHR(DV_E_TYMED);
+
+            if (formatetc.cfFormat == 0)
+                Marshal.ThrowExceptionForHR(NativeMethods.S_FALSE);
+
+            if (!_entries.TryGetValue(formatetc.cfFormat, out var match))
+                Marshal.ThrowExceptionForHR(DV_E_FORMATETC);
+
+            if (medium.unionmember == IntPtr.Zero)
+                Marshal.ThrowExceptionForHR(NativeMethods.E_OUTOFMEMORY);
+
+            int availableMemory = NativeMethods.GlobalSize(medium.unionmember);
+
+            if (match.GetSize() > availableMemory)
+                Marshal.ThrowExceptionForHR(STG_E_MEDIUMFULL);
+
+            var ptr = NativeMethods.GlobalLock(medium.unionmember);
+            try
+            {
+                match.SaveToHandle(ptr);
+            }
+            finally
+            {
+                NativeMethods.GlobalUnlock(medium.unionmember);
+            }
         }
 
-        public int QueryGetData(ref FORMATETC formatetc)
+        int IDataObject.QueryGetData(ref FORMATETC formatetc)
         {
             if (formatetc.dwAspect != DVASPECT.DVASPECT_CONTENT)
                 return DV_E_DVASPECT;
@@ -233,40 +295,51 @@ namespace ClipboardGapWpf
             if (formatetc.cfFormat == 0)
                 return NativeMethods.S_FALSE;
 
-            if (_entries.TryGetValue(formatetc.cfFormat, out var match))
-                return NativeMethods.S_OK; // we found a match
+            if (!_entries.TryGetValue(formatetc.cfFormat, out var match))
+                return DV_E_FORMATETC;
 
-            return DV_E_FORMATETC;
+            return NativeMethods.S_OK; // we found a match
         }
 
-        public int GetCanonicalFormatEtc(ref FORMATETC formatIn, out FORMATETC formatOut)
+        int IDataObject.GetCanonicalFormatEtc(ref FORMATETC formatIn, out FORMATETC formatOut)
         {
             formatOut = new FORMATETC();
             return DATA_S_SAMEFORMATETC;
         }
 
-        public void SetData(ref FORMATETC formatIn, ref STGMEDIUM medium, bool release)
+        void IDataObject.SetData(ref FORMATETC formatIn, ref STGMEDIUM medium, bool release)
         {
             throw new NotImplementedException();
         }
 
-        public IEnumFORMATETC EnumFormatEtc(DATADIR direction)
+        IEnumFORMATETC IDataObject.EnumFormatEtc(DATADIR direction)
         {
-            throw new NotImplementedException();
+            var formats = _entries.Select(e => new FORMATETC
+            {
+                cfFormat = e.Key,
+                dwAspect = DVASPECT.DVASPECT_CONTENT,
+                lindex = -1,
+                ptd = IntPtr.Zero,
+                tymed = TYMED.TYMED_HGLOBAL,
+            });
+
+            var formatA = formats.ToArray();
+
+            return new FormatEnumeratorImpl(formatA);
         }
 
-        public int DAdvise(ref FORMATETC pFormatetc, ADVF advf, IAdviseSink adviseSink, out int connection)
+        int IDataObject.DAdvise(ref FORMATETC pFormatetc, ADVF advf, IAdviseSink adviseSink, out int connection)
         {
             connection = 0;
             return NativeMethods.E_NOTIMPL;
         }
 
-        public void DUnadvise(int connection)
+        void IDataObject.DUnadvise(int connection)
         {
             Marshal.ThrowExceptionForHR(NativeMethods.E_NOTIMPL);
         }
 
-        public int EnumDAdvise(out IEnumSTATDATA enumAdvise)
+        int IDataObject.EnumDAdvise(out IEnumSTATDATA enumAdvise)
         {
             enumAdvise = null;
             return OLE_E_ADVISENOTSUPPORTED;

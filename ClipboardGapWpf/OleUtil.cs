@@ -1,4 +1,5 @@
-﻿using ClipboardGapWpf.Formats;
+﻿using ClipboardGapWpf.Data;
+using ClipboardGapWpf.Formats;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -18,27 +19,22 @@ namespace ClipboardGapWpf
         private const int OLE_RETRY_DELAY = 100;
         private const int OLE_FLUSH_DELAY = 10;
 
-        private static bool OLE_SUCCESS(int hr) => hr >= 0;
-        private static bool OLE_FAIL(int hr) => hr < 0;
-
-        public static void OleFlushClipboard()
+        private static void OleRetryTask(Func<int> task)
         {
             // Retry OLE operations several times as mitigation for clipboard locking issues in TS sessions.
-            // See Dev10 bug 616223 and VSWhidbey bug 476911.
-
             int i = OLE_RETRY_COUNT;
-
             while (true)
             {
-                int hr = NativeMethods.OleFlushClipboard();
+                int hr = task();
 
-                if (OLE_SUCCESS(hr))
-                {
+                if (hr >= 0) // success
                     break;
-                }
+
+                ThrowIfOleUninitialized(hr);
 
                 if (--i == 0)
                 {
+                    ThrowIfClipboardBusy(hr);
                     Marshal.ThrowExceptionForHR(hr);
                 }
 
@@ -46,35 +42,17 @@ namespace ClipboardGapWpf
             }
         }
 
+        public static void OleFlushClipboard()
+        {
+            OleRetryTask(NativeMethods.OleFlushClipboard);
+        }
+
         public static void ClipboardSetDataObject(IDataObject dataObject, bool copy)
         {
             if (dataObject == null)
-            {
                 throw new ArgumentNullException(nameof(dataObject));
-            }
 
-            // Retry OLE operations several times as mitigation for clipboard locking issues in TS sessions.
-            // See Dev10 bug 616223 and VSWhidbey bug 476911.
-
-            int i = OLE_RETRY_COUNT;
-
-            while (true)
-            {
-                // Clear the system clipboard by calling OleSetClipboard with null parameter.
-                int hr = NativeMethods.OleSetClipboard(dataObject);
-
-                if (OLE_SUCCESS(hr))
-                {
-                    break;
-                }
-
-                if (--i == 0)
-                {
-                    Marshal.ThrowExceptionForHR(hr);
-                }
-
-                Thread.Sleep(OLE_RETRY_DELAY);
-            }
+            OleRetryTask(() => NativeMethods.OleSetClipboard(dataObject));
 
             if (copy)
             {
@@ -83,57 +61,16 @@ namespace ClipboardGapWpf
                 // mitigate issues with clipboard listeners (like TS) corrupting the clipboard contents
                 // as a result of these two calls being back to back.
                 Thread.Sleep(OLE_FLUSH_DELAY);
-
                 OleFlushClipboard();
             }
         }
 
         public static IDataObject ClipboardGetDataObject()
         {
-            IDataObject oleDataObject;
-
-            int i = OLE_RETRY_COUNT;
-
-            while (true)
-            {
-                oleDataObject = null;
-                int hr = NativeMethods.OleGetClipboard(ref oleDataObject);
-
-                if (OLE_SUCCESS(hr))
-                {
-                    break;
-                }
-
-                if (--i == 0)
-                {
-                    Marshal.ThrowExceptionForHR(hr);
-                }
-
-                Thread.Sleep(OLE_RETRY_DELAY);
-            }
-
+            IDataObject oleDataObject = null;
+            OleRetryTask(() => NativeMethods.OleGetClipboard(ref oleDataObject));
             return oleDataObject;
         }
-
-        //private static bool GetTymedUseable(TYMED tymed)
-        //{
-        //    var ALLOWED_TYMEDS = new TYMED[] {
-        //        TYMED.TYMED_HGLOBAL,
-        //        TYMED.TYMED_ISTREAM,
-        //        TYMED.TYMED_ENHMF,
-        //        TYMED.TYMED_MFPICT,
-        //        TYMED.TYMED_GDI
-        //    };
-
-        //    for (int i = 0; i < ALLOWED_TYMEDS.Length; i++)
-        //    {
-        //        if ((tymed & ALLOWED_TYMEDS[i]) != 0)
-        //        {
-        //            return true;
-        //        }
-        //    }
-        //    return false;
-        //}
 
         public static IEnumerable<FORMATETC> EnumFormatsInDataObject(IDataObject data)
         {
@@ -172,60 +109,17 @@ namespace ClipboardGapWpf
             }
         }
 
-        //public static T GetOleData<T>(IDataObject data, FORMATETC format, IFormatReader<T> reader) where T : class
-        //{
-        //    var hg = GetOleData(data, format, out var medium);
-        //    if (hg == IntPtr.Zero)
-        //        return null;
-
-        //    try
-        //    {
-
-        //        var ptr = NativeMethods.GlobalLock(hg);
-        //        try
-        //        {
-        //            return reader.ConvertToObject(ptr);
-        //        }
-        //        finally
-        //        {
-        //            NativeMethods.GlobalUnlock(hg);
-        //        }
-        //    }
-        //    finally
-        //    {
-        //        if (hg != IntPtr.Zero) NativeMethods.GlobalFree(hg);
-        //        NativeMethods.ReleaseStgMedium(ref medium);
-        //    }
-        //}
-
-        //public static unsafe MemoryStream ToMemoryStream(IStream comStream)
-        //{
-        //    MemoryStream stream = new MemoryStream();
-        //    byte[] pv = new byte[100];
-        //    uint num = 0;
-
-        //    IntPtr pcbRead = new IntPtr((void*)&num);
-
-        //    do
-        //    {
-        //        num = 0;
-        //        comStream.Read(pv, pv.Length, pcbRead);
-        //        stream.Write(pv, 0, (int)num);
-        //    }
-        //    while (num > 0);
-        //    return stream;
-        //}
-
-        public unsafe static T GetOleDataFromMedium<T>(ref STGMEDIUM medium, IFormatReader<T> reader) where T : class
+        public unsafe static T GetOleDataFromMedium<T>(ref STGMEDIUM medium, IDataReader<T> reader) where T : class
         {
             // HANDLE -> HANDLE
-            if (medium.tymed == TYMED.TYMED_HGLOBAL && reader is IFormatHandleReader<T> handleReader)
+            if (medium.tymed == TYMED.TYMED_HGLOBAL && reader is IDataHandleReader<T> handleReader)
             {
                 Console.WriteLine("HANDLE -> HANDLE");
+                var size = NativeMethods.GlobalSize(medium.unionmember);
                 var ptr = NativeMethods.GlobalLock(medium.unionmember);
                 try
                 {
-                    return handleReader.ReadFromHandle(ptr);
+                    return handleReader.ReadFromHandle(ptr, size);
                 }
                 finally
                 {
@@ -234,7 +128,7 @@ namespace ClipboardGapWpf
             }
 
             // ISTREAM -> ISTREAM
-            if (medium.tymed == TYMED.TYMED_ISTREAM && reader is IFormatStreamReader<T> streamReader)
+            if (medium.tymed == TYMED.TYMED_ISTREAM && reader is IDataStreamReader<T> streamReader)
             {
                 Console.WriteLine("ISTREAM -> ISTREAM");
                 var stream = new ComStreamWrapper((IStream)Marshal.GetObjectForIUnknown(medium.unionmember));
@@ -250,7 +144,7 @@ namespace ClipboardGapWpf
             }
 
             // ISTREAM -> HANDLE
-            if (medium.tymed == TYMED.TYMED_ISTREAM && reader is IFormatHandleReader<T> streamToHandle)
+            if (medium.tymed == TYMED.TYMED_ISTREAM && reader is IDataHandleReader<T> streamToHandle)
             {
                 Console.WriteLine("ISTREAM -> HANDLE");
                 // we can read the stream into an HGlobal and then send to handle reader
@@ -265,7 +159,7 @@ namespace ClipboardGapWpf
                     {
                         pStream.Seek(0, 0);
                         pStream.Read(ptr, size);
-                        streamToHandle.ReadFromHandle(ptr);
+                        streamToHandle.ReadFromHandle(ptr, size);
                     }
                     finally
                     {
@@ -280,7 +174,7 @@ namespace ClipboardGapWpf
             }
 
             // HANDLE -> ISTREAM
-            if (medium.tymed == TYMED.TYMED_HGLOBAL && reader is IFormatStreamReader<T> handleToStream)
+            if (medium.tymed == TYMED.TYMED_HGLOBAL && reader is IDataStreamReader<T> handleToStream)
             {
                 Console.WriteLine("HANDLE -> ISTREAM");
                 var ptr = NativeMethods.GlobalLock(medium.unionmember);
@@ -301,15 +195,15 @@ namespace ClipboardGapWpf
         }
 
 
-        public unsafe static T GetOleData<T>(IDataObject data, short cfFormat, IFormatReader<T> reader) where T : class
+        public unsafe static T GetOleData<T>(IDataObject data, short cfFormat, IDataReader<T> reader) where T : class
         {
             TYMED[] searchOrder;
 
-            if (reader is IFormatHandleReader<T>)
+            if (reader is IDataHandleReader<T>)
             {
                 searchOrder = new TYMED[] { TYMED.TYMED_HGLOBAL, TYMED.TYMED_ISTREAM };
             }
-            else if (reader is IFormatStreamReader<T>)
+            else if (reader is IDataStreamReader<T>)
             {
                 searchOrder = new TYMED[] { TYMED.TYMED_ISTREAM, TYMED.TYMED_HGLOBAL };
             }
@@ -349,110 +243,46 @@ namespace ClipboardGapWpf
             return null;
         }
 
-        //public unsafe static IntPtr GetDataFromOleIStream(IDataObject data, short clFmt)
-        //{
-        //    // https://referencesource.microsoft.com/#System.Windows.Forms/winforms/Managed/System/WinForms/DataObject.cs,d5d12d4d56539d53,references
+        public static void ThrowIfOleUninitialized(int hr)
+        {
+            if (hr == NativeMethods.CO_E_UNINITIALIZED)
+            {
+                throw new InvalidOperationException("Calling thread must be marked STA and have a window & message pump.", Marshal.GetExceptionForHR(hr));
+            }
+        }
 
-        //    var medium = GetOleData(data, clFmt, TYMED.TYMED_ISTREAM);
+        public static void ThrowIfClipboardBusy(int hr)
+        {
+            if (hr == NativeMethods.CLIPBRD_E_CANT_OPEN)
+            {
+                try
+                {
+                    IntPtr hwnd = NativeMethods.GetOpenClipboardWindow();
 
-        //    if (medium.unionmember == IntPtr.Zero)
-        //        return IntPtr.Zero;
+                    if (hwnd != IntPtr.Zero)
+                    {
+                        uint processId;
+                        uint threadId = NativeMethods.GetWindowThreadProcessId(hwnd, out processId);
+                        string processName = "Unknown";
 
-        //    IStream pStream = (IStream)Marshal.GetObjectForIUnknown(medium.unionmember);
-        //    Marshal.Release(medium.unionmember);
-        //    pStream.Stat(out var stats, 0);
-        //    int size = (int)stats.cbSize;
+                        try
+                        {
+                            var p = Process.GetProcessById((int)processId);
+                            processName = p.ProcessName;
+                        }
+                        catch
+                        { }
 
-        //    byte[] buffer = new byte[size];
+                        throw new ClipboardBusyException((int)processId, processName, Marshal.GetExceptionForHR(hr));
+                    }
+                }
+                catch
+                {
+                }
 
-        //    int bytesRead = 0;
-        //    int* brPtr = &bytesRead;
-        //    pStream.Read(buffer, size, (IntPtr)brPtr);
-
-        //    var ptr = Marshal.AllocHGlobal(size);
-        //    Marshal.Copy(buffer, 0, ptr, size);
-
-        //    return ptr;
-        //}
-
-        //public static IntPtr GetDataFromOleHGlobal(IDataObject data, short clFmt)
-        //{
-        //    // https://referencesource.microsoft.com/#System.Windows.Forms/winforms/Managed/System/WinForms/DataObject.cs,0d06320c18f1cb9c,references
-
-        //    var medium = GetOleData(data, clFmt, TYMED.TYMED_HGLOBAL);
-
-        //    if (medium.unionmember == IntPtr.Zero)
-        //        return IntPtr.Zero;
-
-        //    return medium.unionmember;
-        //}
-
-        //private static STGMEDIUM GetOleData(IDataObject data, short clFmt, TYMED tymed)
-        //{
-        //    FORMATETC formatetc = new FORMATETC();
-        //    STGMEDIUM medium = new STGMEDIUM();
-
-        //    formatetc.cfFormat = clFmt;
-        //    formatetc.dwAspect = DVASPECT.DVASPECT_CONTENT;
-        //    formatetc.lindex = -1;
-        //    formatetc.tymed = TYMED.TYMED_ISTREAM;
-        //    medium.tymed = TYMED.TYMED_ISTREAM;
-
-        //    data.GetData(ref formatetc, out medium);
-        //    return medium;
-        //}
-
-        //public static IntPtr CopyHGlobal(IntPtr data)
-        //{
-        //    IntPtr src = NativeMethods.GlobalLock(data);
-        //    var size = NativeMethods.GlobalSize(data);
-        //    IntPtr ptr = Marshal.AllocHGlobal(size);
-        //    IntPtr buffer = NativeMethods.GlobalLock(ptr);
-
-        //    try
-        //    {
-        //        for (int i = 0; i < size; i++)
-        //        {
-        //            byte val = Marshal.ReadByte(new IntPtr((long)src + i));
-
-        //            Marshal.WriteByte(new IntPtr((long)buffer + i), val);
-        //        }
-        //    }
-        //    finally
-        //    {
-        //        if (buffer != IntPtr.Zero)
-        //        {
-        //            NativeMethods.GlobalUnlock(buffer);
-        //        }
-
-        //        if (src != IntPtr.Zero)
-        //        {
-        //            NativeMethods.GlobalUnlock(src);
-        //        }
-        //    }
-        //    return ptr;
-        //}
-
-        //public static string GetProcessNameHoldingClipboard()
-        //{
-        //    IntPtr hwnd = NativeMethods.GetOpenClipboardWindow();
-
-        //    if (hwnd == IntPtr.Zero)
-        //        return null;
-
-        //    uint processId;
-        //    uint threadId = NativeMethods.GetWindowThreadProcessId(hwnd, out processId);
-
-        //    var p = Process.GetProcessById((int)processId);
-
-        //    try
-        //    {
-        //        return p.Modules[0].FileName;
-        //    }
-        //    catch
-        //    {
-        //        return p.ProcessName;
-        //    }
-        //}
+                // if we could not find any information about the locking process (it doesn't have a window?)
+                throw new ClipboardBusyException(Marshal.GetExceptionForHR(hr));
+            }
+        }
     }
 }
