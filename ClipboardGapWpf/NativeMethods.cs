@@ -32,6 +32,11 @@ namespace ClipboardGapWpf
         [DllImport("shell32.dll", CharSet = CharSet.Auto)]
         public static extern int DragQueryFile(HandleRef hDrop, int iFile, StringBuilder lpszFile, int cch);
 
+        [DllImport("shell32.dll", CharSet = CharSet.Auto)]
+        public static extern int DragQueryFile(IntPtr hDrop, int iFile, StringBuilder lpszFile, int cch);
+
+        // OLE32
+
         [DllImport("ole32.dll")]
         public static extern int OleInitialize(IntPtr pvReserved);
 
@@ -47,6 +52,8 @@ namespace ClipboardGapWpf
         [DllImport("ole32.dll", ExactSpelling = true, CharSet = CharSet.Auto)]
         public static extern void ReleaseStgMedium(ref System.Runtime.InteropServices.ComTypes.STGMEDIUM medium);
 
+        // USER32
+
         [DllImport("user32.dll")]
         public static extern IntPtr GetOpenClipboardWindow();
 
@@ -54,15 +61,56 @@ namespace ClipboardGapWpf
         public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
         [DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Auto, BestFitMapping = false, SetLastError = true)]
-        public static extern int GetClipboardFormatName(int format, StringBuilder lpString, int cchMax);
+        public static extern int GetClipboardFormatName(uint format, StringBuilder lpString, int cchMax);
 
         [DllImport("user32.dll", SetLastError = true, CharSet = System.Runtime.InteropServices.CharSet.Auto, BestFitMapping = false)]
-        public static extern int RegisterClipboardFormat(string format);
+        public static extern uint RegisterClipboardFormat(string format);
 
-        [DllImport("kernel32.dll", ExactSpelling = true, CharSet = CharSet.Auto)]
+        [DllImport("user32.dll", EntryPoint = "CreateWindowExW", SetLastError = true)]
+        public static extern IntPtr CreateWindowEx(int dwExStyle, [MarshalAs(UnmanagedType.LPWStr)] string lpClassName,
+            [MarshalAs(UnmanagedType.LPWStr)] string lpWindowName, int dwStyle, int x, int y,
+            int nWidth, int nHeight, IntPtr hWndParent, IntPtr hMenu, IntPtr hInstance,
+            IntPtr lpParam);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern bool DestroyWindow(IntPtr hWnd);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern bool UnregisterClass(string lpClassName, IntPtr hInstance);
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr DefWindowProc(IntPtr hWnd, uint msg, IntPtr wparam, IntPtr lparam);
+
+        [DllImport("user32.dll", EntryPoint = "RegisterClassW", SetLastError = true)]
+        public static extern short RegisterClass(ref WindowClass lpWndClass);
+
+        [DllImport("user32.dll", EntryPoint = "RegisterWindowMessageW")]
+        public static extern uint RegisterWindowMessage([MarshalAs(UnmanagedType.LPWStr)] string lpString);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern bool OpenClipboard(IntPtr hWndNewOwner);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern bool CloseClipboard();
+
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern bool EmptyClipboard();
+
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern IntPtr SetClipboardData(uint uFormat, IntPtr hMem);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern IntPtr GetClipboardData(uint uFormat);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern uint EnumClipboardFormats(uint format);
+
+        // KERNEL32
+
+        [DllImport("kernel32.dll", ExactSpelling = true, CharSet = CharSet.Auto, SetLastError = true)]
         public static extern IntPtr GlobalAlloc(int uFlags, int dwBytes);
 
-        [DllImport("kernel32.dll", ExactSpelling = true, CharSet = CharSet.Auto)]
+        [DllImport("kernel32.dll", ExactSpelling = true, CharSet = CharSet.Auto, SetLastError = true)]
         public static extern IntPtr GlobalLock(IntPtr handle);
 
         [DllImport("kernel32.dll", ExactSpelling = true, CharSet = CharSet.Auto)]
@@ -91,6 +139,8 @@ namespace ClipboardGapWpf
 
         [DllImport("kernel32.dll", CharSet = CharSet.Auto)]
         public static extern int lstrlen(String s);
+
+        // GDI32
 
         [DllImport("gdi32.dll")]
         public static extern bool DeleteObject(IntPtr hObject);

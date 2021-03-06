@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace ClipboardGapWpf
 {
-    class StructUtil
+    internal class StructUtil
     {
         public static byte[] Serialize<T>(T s) where T : struct
         {

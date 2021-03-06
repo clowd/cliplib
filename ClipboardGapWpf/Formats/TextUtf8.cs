@@ -7,15 +7,15 @@ using System.Threading.Tasks;
 
 namespace ClipboardGapWpf.Formats
 {
-    class TextUtf8 : IDataHandleReader<string>, IDataHandleWriter<string>
+    class TextUtf8 : HandleDataConverterBase<string>
     {
-        public int GetDataSize(string obj)
+        public override int GetDataSize(string obj)
         {
             var enc = new UTF8Encoding();
             return enc.GetByteCount(obj) + 1;
         }
 
-        public string ReadFromHandle(IntPtr pointerUtf8, int memSize)
+        public override string ReadFromHandle(IntPtr pointerUtf8, int memSize)
         {
             string stringData = null;
             int utf8ByteCount;
@@ -38,7 +38,7 @@ namespace ClipboardGapWpf.Formats
             return stringData;
         }
 
-        public void WriteToHandle(string obj, IntPtr ptr)
+        public override void WriteToHandle(string obj, IntPtr ptr)
         {
             var enc = new UTF8Encoding();
             var bytes = enc.GetBytes(obj);

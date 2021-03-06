@@ -8,7 +8,7 @@ using System.Windows.Media.Imaging;
 
 namespace ClipboardGapWpf.Formats
 {
-    class ImageWpfFileDrop : IDataHandleReader<BitmapSource>
+    class ImageWpfFileDrop : HandleDataConverterBase<BitmapSource>
     {
         private static string[] _knownImageExt = new[]
         {
@@ -16,7 +16,12 @@ namespace ClipboardGapWpf.Formats
             ".gif", ".tif", ".tiff", ".ico"
         };
 
-        public BitmapSource ReadFromHandle(IntPtr ptr, int memSize)
+        public override int GetDataSize(BitmapSource obj)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override BitmapSource ReadFromHandle(IntPtr ptr, int memSize)
         {
             var reader = new FileDrop();
             var fileDropList = reader.ReadFromHandle(ptr, memSize);
@@ -35,6 +40,11 @@ namespace ClipboardGapWpf.Formats
             }
 
             return null;
+        }
+
+        public override void WriteToHandle(BitmapSource obj, IntPtr ptr)
+        {
+            throw new NotImplementedException();
         }
     }
 }

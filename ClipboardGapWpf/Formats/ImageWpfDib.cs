@@ -1,5 +1,4 @@
-﻿using ClipboardGapWpf.Data;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -9,7 +8,7 @@ using System.Windows.Media.Imaging;
 
 namespace ClipboardGapWpf.Formats
 {
-    class ImageWpfDib : IDataStreamWriter<BitmapSource>, IDataStreamReader<BitmapSource>
+    class ImageWpfDib : BytesDataConverterBase<BitmapSource>
     {
         // https://docs.microsoft.com/en-us/windows/win32/gdi/bitmap-header-types
         // https://gitlab.idiap.ch/bob/bob.io.image/blob/c7ee46c80ae24b9e74cbf8ff76168605186271db/bob/io/image/bmp.cpp#L866
@@ -19,6 +18,7 @@ namespace ClipboardGapWpf.Formats
         // http://fileformats.archiveteam.org/wiki/BMP
         // https://medium.com/sysf/bits-to-bitmaps-a-simple-walkthrough-of-bmp-image-format-765dc6857393
         // http://entropymine.com/jason/bmpsuite/bmpsuite/html/bmpsuite.html
+        // https://github.com/dacap/clip/blob/main/clip_win.cpp
 
         const int
             BFH_SIZE = 14,
@@ -26,31 +26,8 @@ namespace ClipboardGapWpf.Formats
             BMPV4_SIZE = 108,
             BMPV5_SIZE = 124;
 
-        public void WriteToStream(BitmapSource obj, Stream stream)
+        public override BitmapSource ReadFromBytes(byte[] buffer)
         {
-            var encoder = new BmpBitmapEncoder();
-
-            if (obj is BitmapFrame frame)
-                encoder.Frames.Add(frame);
-            else
-                encoder.Frames.Add(BitmapFrame.Create(obj));
-
-            MemoryStream ms = new MemoryStream();
-            encoder.Save(ms);
-            var buffer = ms.GetBuffer();
-
-            var header = StructUtil.Deserialize<BITMAPINFOHEADER>(buffer, BFH_SIZE);
-
-            if (header.bV5Size != BMPV1_SIZE)
-                throw new NotSupportedException($"BMP header size was '{header.bV5Size}', expected '{BMPV1_SIZE}'.");
-
-            stream.Write(buffer, BFH_SIZE, buffer.Length - BFH_SIZE);
-        }
-
-        public BitmapSource ReadFromStream(Stream stream)
-        {
-            var buffer = stream.ReadAllBytes();
-
             var header = StructUtil.Deserialize<BITMAPINFOHEADER>(buffer, 0);
             var fileSize = BFH_SIZE + buffer.Length;
 
@@ -73,6 +50,28 @@ namespace ClipboardGapWpf.Formats
 
             var bitmap = BitmapFrame.Create(ms);
             return bitmap;
+        }
+
+        public override byte[] WriteToBytes(BitmapSource obj)
+        {
+            var encoder = new BmpBitmapEncoder();
+            if (obj is BitmapFrame frame) encoder.Frames.Add(frame);
+            else encoder.Frames.Add(BitmapFrame.Create(obj));
+
+            MemoryStream ms = new MemoryStream();
+            encoder.Save(ms);
+            var buffer = ms.GetBuffer();
+
+            var header = StructUtil.Deserialize<BITMAPINFOHEADER>(buffer, BFH_SIZE);
+
+            if (header.bV5Size != BMPV1_SIZE)
+                throw new NotSupportedException($"BMP header size was '{header.bV5Size}', expected '{BMPV1_SIZE}'.");
+
+            var outputSize = buffer.Length - BFH_SIZE;
+            var output = new byte[outputSize];
+            Buffer.BlockCopy(buffer, BFH_SIZE, output, 0, outputSize);
+
+            return output;
         }
     }
 }

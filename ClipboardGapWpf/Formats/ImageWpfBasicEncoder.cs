@@ -9,21 +9,23 @@ using System.Windows.Media.Imaging;
 namespace ClipboardGapWpf.Formats
 {
 
-    public abstract class ImageWpfBasicEncoder : IDataStreamReader<BitmapSource>, IDataStreamWriter<BitmapSource>
+    public abstract class ImageWpfBasicEncoder : BytesDataConverterBase<BitmapSource>
     {
-        public BitmapSource ReadFromStream(Stream stream)
+        public override BitmapSource ReadFromBytes(byte[] data)
         {
-            var decoder = GetDecoder(stream);
+            var decoder = GetDecoder(new MemoryStream(data));
             BitmapSource bitmapSource = decoder.Frames[0];
             return bitmapSource;
         }
 
-        public void WriteToStream(BitmapSource obj, Stream stream)
+        public override byte[] WriteToBytes(BitmapSource obj)
         {
+            var stream = new MemoryStream();
             var encoder = GetEncoder();
             if (obj is BitmapFrame frame) encoder.Frames.Add(frame);
             else encoder.Frames.Add(BitmapFrame.Create(obj));
             encoder.Save(stream);
+            return stream.GetBuffer();
         }
 
         protected abstract BitmapDecoder GetDecoder(Stream stream);

@@ -9,13 +9,13 @@ using System.Windows;
 
 namespace ClipboardGapWpf.Formats
 {
-    public abstract class Int32Base<T> : IDataHandleReader<T>, IDataHandleWriter<T>
+    public abstract class Int32Base<T> : HandleDataConverterBase<T>
     {
-        public int GetDataSize(T obj) => sizeof(int);
+        public override int GetDataSize(T obj) => sizeof(int);
         public abstract T ReadFromInt32(int val);
         public abstract int WriteToInt32(T obj);
-        public T ReadFromHandle(IntPtr ptr, int memSize) => ReadFromInt32(Marshal.ReadInt32(ptr));
-        public void WriteToHandle(T obj, IntPtr ptr) => Marshal.WriteInt32(ptr, WriteToInt32(obj));
+        public override T ReadFromHandle(IntPtr ptr, int memSize) => ReadFromInt32(Marshal.ReadInt32(ptr));
+        public override void WriteToHandle(T obj, IntPtr ptr) => Marshal.WriteInt32(ptr, WriteToInt32(obj));
     }
 
     class Locale : Int32Base<CultureInfo>

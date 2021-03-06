@@ -1,6 +1,7 @@
-﻿using System.Runtime.InteropServices;
+﻿using System;
+using System.Runtime.InteropServices;
 
-namespace ClipboardGapWpf.Data
+namespace ClipboardGapWpf
 {
     internal enum BitmapCompressionMode : uint
     {
@@ -90,5 +91,22 @@ namespace ClipboardGapWpf.Data
         public byte rgbGreen;
         public byte rgbRed;
         public byte rgbReserved;
+    }
+
+    public delegate IntPtr WindowProcedureHandler(IntPtr hwnd, uint uMsg, IntPtr wparam, IntPtr lparam);
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct WindowClass
+    {
+        public uint style;
+        public WindowProcedureHandler lpfnWndProc;
+        public int cbClsExtra;
+        public int cbWndExtra;
+        public IntPtr hInstance;
+        public IntPtr hIcon;
+        public IntPtr hCursor;
+        public IntPtr hbrBackground;
+        [MarshalAs(UnmanagedType.LPWStr)] public string lpszMenuName;
+        [MarshalAs(UnmanagedType.LPWStr)] public string lpszClassName;
     }
 }

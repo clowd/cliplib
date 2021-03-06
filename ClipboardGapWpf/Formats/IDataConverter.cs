@@ -1,62 +1,125 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace ClipboardGapWpf.Formats
 {
-    public interface IDataConverter { }
-    public interface IDataConverter<T> : IDataConverter { }
-    public interface IDataReader<T> : IDataConverter<T> { }
-    public interface IDataWriter<T> : IDataConverter<T> { }
-
-    public interface IDataHandleReader<T> : IDataReader<T>
+    public interface IDataConverter<T>
     {
-        T ReadFromHandle(IntPtr ptr, int memSize);
+        IntPtr WriteToHGlobal(T obj);
+        T ReadFromHGlobal(IntPtr hGlobal);
     }
 
-    public interface IDataStreamReader<T> : IDataReader<T>
+    public class BytesDataConverter : BytesDataConverterBase<byte[]>
     {
-        T ReadFromStream(Stream stream);
+        public override byte[] ReadFromBytes(byte[] data) => data;
+
+        public override byte[] WriteToBytes(byte[] obj) => obj;
     }
 
-    public interface IDataHandleWriter<T> : IDataWriter<T>
+    public abstract class BytesDataConverterBase<T> : IDataConverter<T>
     {
-        int GetDataSize(T obj);
-        void WriteToHandle(T obj, IntPtr ptr);
+        public abstract byte[] WriteToBytes(T obj);
+
+        public abstract T ReadFromBytes(byte[] data);
+
+        public virtual IntPtr WriteToHGlobal(T obj)
+        {
+            var bytes = WriteToBytes(obj);
+            var size = bytes.Length;
+
+            var hglobal = NativeMethods.GlobalAlloc(NativeMethods.GMEM_MOVEABLE | NativeMethods.GMEM_ZEROINIT, size);
+            if (hglobal == IntPtr.Zero)
+                throw new Win32Exception();
+
+            var ptr = NativeMethods.GlobalLock(hglobal);
+            if (ptr == IntPtr.Zero)
+                throw new Win32Exception();
+
+            try
+            {
+                Marshal.Copy(bytes, 0, ptr, size);
+            }
+            finally
+            {
+                NativeMethods.GlobalUnlock(hglobal);
+            }
+
+            return hglobal;
+        }
+
+        public T ReadFromHGlobal(IntPtr hglobal)
+        {
+            var ptr = NativeMethods.GlobalLock(hglobal);
+            if (ptr == IntPtr.Zero)
+                throw new Win32Exception();
+
+            try
+            {
+                var size = NativeMethods.GlobalSize(hglobal);
+                byte[] bytes = new byte[size];
+                Marshal.Copy(ptr, bytes, 0, size);
+                return ReadFromBytes(bytes);
+            }
+            finally
+            {
+                NativeMethods.GlobalUnlock(hglobal);
+            }
+        }
     }
 
-    public interface IDataStreamWriter<T> : IDataWriter<T>
+    public abstract class HandleDataConverterBase<T> : IDataConverter<T>
     {
-        void WriteToStream(T obj, Stream stream);
+        public abstract int GetDataSize(T obj);
+
+        public abstract void WriteToHandle(T obj, IntPtr ptr);
+
+        public abstract T ReadFromHandle(IntPtr ptr, int memSize);
+
+        public T ReadFromHGlobal(IntPtr hglobal)
+        {
+            var ptr = NativeMethods.GlobalLock(hglobal);
+            if (ptr == IntPtr.Zero)
+                throw new Win32Exception();
+
+            try
+            {
+                var size = NativeMethods.GlobalSize(hglobal);
+                return ReadFromHandle(ptr, size);
+            }
+            finally
+            {
+                NativeMethods.GlobalUnlock(hglobal);
+            }
+        }
+
+        public IntPtr WriteToHGlobal(T obj)
+        {
+            var size = GetDataSize(obj);
+
+            var hglobal = NativeMethods.GlobalAlloc(NativeMethods.GMEM_MOVEABLE | NativeMethods.GMEM_ZEROINIT, size);
+            if (hglobal == IntPtr.Zero)
+                throw new Win32Exception();
+
+            var ptr = NativeMethods.GlobalLock(hglobal);
+            if (ptr == IntPtr.Zero)
+                throw new Win32Exception();
+
+            try
+            {
+                WriteToHandle(obj, ptr);
+            }
+            finally
+            {
+                NativeMethods.GlobalUnlock(hglobal);
+            }
+
+            return hglobal;
+        }
     }
-
-    //class FormatSet<T> : List<FormatSetItem<T>>
-    //{
-    //    public void Add(ClipboardFormat format, IFormatReader<T> reader)
-    //    {
-    //        this.Add(new FormatSetItem<T>(format, reader, null));
-    //    }
-
-    //    public void Add(ClipboardFormat format, IFormatReader<T> reader, IFormatWriter<T> writer)
-    //    {
-    //        this.Add(new FormatSetItem<T>(format, reader, writer));
-    //    }
-    //}
-
-    //class FormatSetItem<T>
-    //{
-    //    public ClipboardFormat Format { get; }
-    //    public IFormatReader<T> Reader { get; }
-    //    public IFormatWriter<T> Writer { get; }
-
-    //    public FormatSetItem(ClipboardFormat format, IFormatReader<T> reader, IFormatWriter<T> writer)
-    //    {
-    //        Format = format;
-    //        Reader = reader;
-    //        Writer = writer;
-    //    }
-    //}
 }
