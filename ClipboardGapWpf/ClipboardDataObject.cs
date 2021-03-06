@@ -129,7 +129,7 @@ namespace ClipboardGapWpf
 
         public string[] GetFileDropList()
         {
-            //var effect = GetDataFromFormat<System.Windows.DragDropEffects>(ClipboardFormat.DropEffect);
+            var effect = GetDataFromFormat<System.Windows.DragDropEffects>(ClipboardFormat.DropEffect);
 
             var drop = GetDataFromFormat<string[]>(ClipboardFormat.FileDrop);
             if (drop != null)
@@ -164,7 +164,7 @@ namespace ClipboardGapWpf
             }
         }
 
-        private T GetDataFromFormat<T>(params ClipboardFormat[] formats) where T : class
+        private T GetDataFromFormat<T>(params ClipboardFormat[] formats) 
         {
             var presentFormats = OleUtil.EnumFormatsInDataObject(_data).ToDictionary(f => f.cfFormat, f => f);
             var matchFound = false;

@@ -109,7 +109,7 @@ namespace ClipboardGapWpf
             }
         }
 
-        public unsafe static T GetOleDataFromMedium<T>(ref STGMEDIUM medium, IDataReader<T> reader) where T : class
+        public unsafe static bool GetOleDataFromMedium<T>(ref STGMEDIUM medium, IDataReader<T> reader, out T data)
         {
             // HANDLE -> HANDLE
             if (medium.tymed == TYMED.TYMED_HGLOBAL && reader is IDataHandleReader<T> handleReader)
@@ -195,7 +195,7 @@ namespace ClipboardGapWpf
         }
 
 
-        public unsafe static T GetOleData<T>(IDataObject data, short cfFormat, IDataReader<T> reader) where T : class
+        public unsafe static bool GetOleData<T>(IDataObject data, short cfFormat, IDataReader<T> reader, out T result)
         {
             TYMED[] searchOrder;
 
