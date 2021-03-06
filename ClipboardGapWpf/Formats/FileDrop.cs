@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace ClipboardGapWpf.Formats
 {
-    class FileDrop : HandleDataConverterBase<string[]>
+    public class FileDrop : HandleDataConverterBase<string[]>
     {
         const int PATH_MAX_LEN = 260;
         const int PATH_LONG_MAX_LEN = short.MaxValue;
@@ -19,14 +19,14 @@ namespace ClipboardGapWpf.Formats
             string[] files = null;
             StringBuilder sb = new StringBuilder(PATH_MAX_LEN);
 
-            int count = NativeMethods.DragQueryFile(new HandleRef(null, hdrop), unchecked((int)0xFFFFFFFF), null, 0);
+            int count = NativeMethods.DragQueryFile(hdrop, unchecked((int)0xFFFFFFFF), null, 0);
             if (count > 0)
             {
                 files = new string[count];
 
                 for (int i = 0; i < count; i++)
                 {
-                    int charlen = DragQueryFileLongPath(new HandleRef(null, hdrop), i, sb);
+                    int charlen = DragQueryFileLongPath(hdrop, i, sb);
                     if (0 == charlen)
                         continue;
 
@@ -37,7 +37,7 @@ namespace ClipboardGapWpf.Formats
             return files;
         }
 
-        public static int DragQueryFileLongPath(HandleRef hDrop, int iFile, StringBuilder lpszFile)
+        public static int DragQueryFileLongPath(IntPtr hDrop, int iFile, StringBuilder lpszFile)
         {
             if (null != lpszFile && 0 != lpszFile.Capacity && iFile != unchecked((int)0xFFFFFFFF))
             {

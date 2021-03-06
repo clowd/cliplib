@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace ClipboardGapWpf.Formats
 {
-    class TextAnsi : HandleDataConverterBase<string>
+    public class TextAnsi : HandleDataConverterBase<string>
     {
         public override int GetDataSize(string data)
         {

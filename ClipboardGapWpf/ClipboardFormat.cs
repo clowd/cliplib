@@ -41,105 +41,99 @@ namespace ClipboardGapWpf
             CF_GDIOBJLAST = 0x03FF;
 
         // STANDARD FORMATS
-        public static readonly ClipboardFormat<string> Text = CreateFormat(CF_TEXT, "Text", new TextAnsi());
-        public static readonly ClipboardFormat Bitmap = CreateFormat(CF_BITMAP, "Bitmap");
-        public static readonly ClipboardFormat MetafilePict = CreateFormat(CF_METAFILEPICT, "MetaFilePict");
-        public static readonly ClipboardFormat SymbolicLink = CreateFormat(CF_SYLK, "SymbolicLink");
-        public static readonly ClipboardFormat DataInterchangeFormat = CreateFormat(CF_DIF, "DataInterchangeFormat");
-        public static readonly ClipboardFormat<BitmapSource> Tiff = CreateFormat(CF_TIFF, "TaggedImageFileFormat", new ImageWpfBasicEncoderTiff());
-        public static readonly ClipboardFormat<string> OemText = CreateFormat(CF_OEMTEXT, "OEMText", new TextAnsi());
-        public static readonly ClipboardFormat<BitmapSource> Dib = CreateFormat(CF_DIB, "DeviceIndependentBitmap", new ImageWpfDib());
-        public static readonly ClipboardFormat Palette = CreateFormat(CF_PALETTE, "Palette");
-        public static readonly ClipboardFormat PenData = CreateFormat(CF_PENDATA, "PenData");
-        public static readonly ClipboardFormat RiffAudio = CreateFormat(CF_RIFF, "RiffAudio");
-        public static readonly ClipboardFormat WaveAudio = CreateFormat(CF_WAVE, "WaveAudio");
-        public static readonly ClipboardFormat<string> UnicodeText = CreateFormat(CF_UNICODETEXT, "UnicodeText", new TextUnicode());
-        public static readonly ClipboardFormat EnhancedMetafile = CreateFormat(CF_ENHMETAFILE, "EnhancedMetafile");
-        public static readonly ClipboardFormat<string[]> FileDrop = CreateFormat(CF_HDROP, "FileDrop", new FileDrop());
-        public static readonly ClipboardFormat<CultureInfo> Locale = CreateFormat(CF_LOCALE, "Locale", new Locale());
-        public static readonly ClipboardFormat DibV5 = CreateFormat(CF_DIBV5, "Format17");
+        public static readonly ClipboardFormat<string> Text = DefaultFormat(CF_TEXT, "Text", new TextAnsi());
+        public static readonly ClipboardFormat Bitmap = DefaultFormat(CF_BITMAP, "Bitmap");
+        public static readonly ClipboardFormat MetafilePict = DefaultFormat(CF_METAFILEPICT, "MetaFilePict");
+        public static readonly ClipboardFormat SymbolicLink = DefaultFormat(CF_SYLK, "SymbolicLink");
+        public static readonly ClipboardFormat DataInterchangeFormat = DefaultFormat(CF_DIF, "DataInterchangeFormat");
+        public static readonly ClipboardFormat<BitmapSource> Tiff = DefaultFormat(CF_TIFF, "TaggedImageFileFormat", new ImageWpfBasicEncoderTiff());
+        public static readonly ClipboardFormat<string> OemText = DefaultFormat(CF_OEMTEXT, "OEMText", new TextAnsi());
+        public static readonly ClipboardFormat<BitmapSource> Dib = DefaultFormat(CF_DIB, "DeviceIndependentBitmap", new ImageWpfDib());
+        public static readonly ClipboardFormat Palette = DefaultFormat(CF_PALETTE, "Palette");
+        public static readonly ClipboardFormat PenData = DefaultFormat(CF_PENDATA, "PenData");
+        public static readonly ClipboardFormat RiffAudio = DefaultFormat(CF_RIFF, "RiffAudio");
+        public static readonly ClipboardFormat WaveAudio = DefaultFormat(CF_WAVE, "WaveAudio");
+        public static readonly ClipboardFormat<string> UnicodeText = DefaultFormat(CF_UNICODETEXT, "UnicodeText", new TextUnicode());
+        public static readonly ClipboardFormat EnhancedMetafile = DefaultFormat(CF_ENHMETAFILE, "EnhancedMetafile");
+        public static readonly ClipboardFormat<string[]> FileDrop = DefaultFormat(CF_HDROP, "FileDrop", new FileDrop());
+        public static readonly ClipboardFormat<CultureInfo> Locale = DefaultFormat(CF_LOCALE, "Locale", new Locale());
+        public static readonly ClipboardFormat DibV5 = DefaultFormat(CF_DIBV5, "Format17");
 
         // CUSTOM FORMATS
-        public static readonly ClipboardFormat<string> Html = CreateFormat("HTML Format", new TextUtf8());
-        public static readonly ClipboardFormat<string> Rtf = CreateFormat("Rich Text Format", new TextAnsi());
-        public static readonly ClipboardFormat<string> Csv = CreateFormat("CSV", new TextAnsi());
-        public static readonly ClipboardFormat<string> Xaml = CreateFormat("Xaml", new TextUtf8());
-        public static readonly ClipboardFormat<BitmapSource> Jpg = CreateFormat("JPG", new ImageWpfBasicEncoderJpeg());
-        public static readonly ClipboardFormat<BitmapSource> Jpeg = CreateFormat("JPEG", new ImageWpfBasicEncoderJpeg());
-        public static readonly ClipboardFormat<BitmapSource> Jfif = CreateFormat("Jfif", new ImageWpfBasicEncoderJpeg());
-        public static readonly ClipboardFormat<BitmapSource> Gif = CreateFormat("Gif", new ImageWpfBasicEncoderGif());
-        public static readonly ClipboardFormat<BitmapSource> Png = CreateFormat("PNG", new ImageWpfBasicEncoderPng());
-        public static readonly ClipboardFormat<DragDropEffects> DropEffect = CreateFormat("Preferred DropEffect", new DropEffect());
-        [Obsolete] public static readonly ClipboardFormat<string> FileName = CreateFormat("FileName", new TextAnsi());
-        [Obsolete] public static readonly ClipboardFormat<string> FileNameW = CreateFormat("FileNameW", new TextUnicode());
+        public static readonly ClipboardFormat<string> Html = DefaultFormat("HTML Format", new TextUtf8());
+        public static readonly ClipboardFormat<string> Rtf = DefaultFormat("Rich Text Format", new TextAnsi());
+        public static readonly ClipboardFormat<string> Csv = DefaultFormat("CSV", new TextAnsi());
+        public static readonly ClipboardFormat<string> Xaml = DefaultFormat("Xaml", new TextUtf8());
+        public static readonly ClipboardFormat<BitmapSource> Jpg = DefaultFormat("JPG", new ImageWpfBasicEncoderJpeg());
+        public static readonly ClipboardFormat<BitmapSource> Jpeg = DefaultFormat("JPEG", new ImageWpfBasicEncoderJpeg());
+        public static readonly ClipboardFormat<BitmapSource> Jfif = DefaultFormat("Jfif", new ImageWpfBasicEncoderJpeg());
+        public static readonly ClipboardFormat<BitmapSource> Gif = DefaultFormat("Gif", new ImageWpfBasicEncoderGif());
+        public static readonly ClipboardFormat<BitmapSource> Png = DefaultFormat("PNG", new ImageWpfBasicEncoderPng());
+        public static readonly ClipboardFormat<DragDropEffects> DropEffect = DefaultFormat("Preferred DropEffect", new DropEffect());
+        [Obsolete] public static readonly ClipboardFormat<string> FileName = DefaultFormat("FileName", new TextAnsi());
+        [Obsolete] public static readonly ClipboardFormat<string> FileNameW = DefaultFormat("FileNameW", new TextUnicode());
 
         public uint Id { get; }
         public string Name { get; }
 
-        public ClipboardFormat(uint std, string name)
+        protected ClipboardFormat(uint std, string name)
         {
             Id = std;
             Name = name;
-            _lookup.Add(std, this);
         }
 
-        private static ClipboardFormat<T> CreateFormat<T>(uint formatId, string formatName, IDataConverter<T> formats)
+        private static ClipboardFormat<T> DefaultFormat<T>(uint formatId, string formatName, IDataConverter<T> formats)
         {
-            return new ClipboardFormat<T>(formatId, formatName, formats);
+            var fmt = new ClipboardFormatDRVP<T>(formatId, formatName, formats);
+            _lookup.Add(formatId, fmt);
+            return fmt;
         }
 
-        private static ClipboardFormat CreateFormat(uint formatId, string formatName)
+        private static ClipboardFormat DefaultFormat(uint formatId, string formatName)
         {
-            return new ClipboardFormat(formatId, formatName);
+            var fmt = new ClipboardFormat(formatId, formatName);
+            _lookup.Add(formatId, fmt);
+            return fmt;
         }
 
-        private static ClipboardFormat CreateFormat(uint formatId)
-        {
-            StringBuilder sb = new StringBuilder(255);
-
-            var len = NativeMethods.GetClipboardFormatName(formatId, sb, 255);
-            if (len == 0)
-                throw new Win32Exception();
-
-            return CreateFormat(formatId, sb.ToString());
-        }
-
-        private static ClipboardFormat<T> CreateFormat<T>(string formatName, IDataConverter<T> formats)
+        private static ClipboardFormat<T> DefaultFormat<T>(string formatName, IDataConverter<T> formats)
         {
             var formatId = NativeMethods.RegisterClipboardFormat(formatName);
             if (formatId == 0)
                 throw new Win32Exception();
 
-            return CreateFormat(formatId, formatName, formats);
+            return DefaultFormat(formatId, formatName, formats);
         }
 
-        //private static ClipboardFormat CreateFormat(string formatName)
-        //{
-        //    // If a registered format with the specified name already exists, a new format is not registered and the return value identifies the existing format. 
-        //    // This enables more than one application to copy and paste data using the same registered clipboard format. Note that the format name comparison is case-insensitive.
-
-        //    var formatId = NativeMethods.RegisterClipboardFormat(formatName);
-        //    if (formatId == 0)
-        //        throw new Win32Exception();
-
-        //    return CreateFormat(formatId);
-        //}
-
-        public static ClipboardFormat GetFormat(uint formatId)
+        public static ClipboardFormat GetFormatById(uint formatId)
         {
             if (_lookup.TryGetValue(formatId, out var std))
                 return std;
 
-            return CreateFormat(formatId);
+            StringBuilder sb = new StringBuilder(255);
+            var len = NativeMethods.GetClipboardFormatName(formatId, sb, 255);
+            if (len == 0)
+                throw new Win32Exception();
+
+            return new ClipboardFormat(formatId, sb.ToString());
         }
 
-        public static ClipboardFormat GetFormat(string formatName)
+        public static ClipboardFormat CreateCustomFormat(string formatName)
         {
             var formatId = NativeMethods.RegisterClipboardFormat(formatName);
             if (formatId == 0)
                 throw new Win32Exception();
 
-            return GetFormat(formatId);
+            return new ClipboardFormat(formatId, formatName);
+        }
+
+        public static ClipboardFormat<T> CreateCustomFormat<T>(string formatName, IDataConverter<T> converter)
+        {
+            var formatId = NativeMethods.RegisterClipboardFormat(formatName);
+            if (formatId == 0)
+                throw new Win32Exception();
+
+            return new ClipboardFormatDRVP<T>(formatId, formatName, converter);
         }
 
         public override bool Equals(object obj)
@@ -158,9 +152,16 @@ namespace ClipboardGapWpf
     public class ClipboardFormat<T> : ClipboardFormat
     {
         public IDataConverter<T> ObjectParserTyped { get; }
-        public ClipboardFormat(uint std, string name, IDataConverter<T> formats) : base(std, name)
+        protected ClipboardFormat(uint std, string name, IDataConverter<T> formats) : base(std, name)
         {
             ObjectParserTyped = formats;
+        }
+    }
+
+    internal class ClipboardFormatDRVP<T> : ClipboardFormat<T>
+    {
+        public ClipboardFormatDRVP(uint std, string name, IDataConverter<T> formats) : base(std, name, formats)
+        {
         }
     }
 }

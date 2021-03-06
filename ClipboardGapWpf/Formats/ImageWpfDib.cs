@@ -8,7 +8,7 @@ using System.Windows.Media.Imaging;
 
 namespace ClipboardGapWpf.Formats
 {
-    class ImageWpfDib : BytesDataConverterBase<BitmapSource>
+    public class ImageWpfDib : BytesDataConverterBase<BitmapSource>
     {
         // https://docs.microsoft.com/en-us/windows/win32/gdi/bitmap-header-types
         // https://gitlab.idiap.ch/bob/bob.io.image/blob/c7ee46c80ae24b9e74cbf8ff76168605186271db/bob/io/image/bmp.cpp#L866

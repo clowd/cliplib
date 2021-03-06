@@ -8,7 +8,7 @@ using System.Windows.Media.Imaging;
 
 namespace ClipboardGapWpf.Formats
 {
-    class ImageWpfFileDrop : HandleDataConverterBase<BitmapSource>
+    public class ImageWpfFileDrop : HandleDataConverterBase<BitmapSource>
     {
         private static string[] _knownImageExt = new[]
         {

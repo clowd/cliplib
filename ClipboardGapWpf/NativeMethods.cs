@@ -4,7 +4,6 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
-using IComDataObject = System.Runtime.InteropServices.ComTypes.IDataObject;
 
 namespace ClipboardGapWpf
 {
@@ -28,29 +27,10 @@ namespace ClipboardGapWpf
         public const int GMEM_MOVEABLE = 0x0002;
         public const int GMEM_ZEROINIT = 0x0040;
 
-
-        [DllImport("shell32.dll", CharSet = CharSet.Auto)]
-        public static extern int DragQueryFile(HandleRef hDrop, int iFile, StringBuilder lpszFile, int cch);
+        // SHELL32
 
         [DllImport("shell32.dll", CharSet = CharSet.Auto)]
         public static extern int DragQueryFile(IntPtr hDrop, int iFile, StringBuilder lpszFile, int cch);
-
-        // OLE32
-
-        [DllImport("ole32.dll")]
-        public static extern int OleInitialize(IntPtr pvReserved);
-
-        [DllImport("ole32.dll", ExactSpelling = true, CharSet = CharSet.Auto)]
-        public static extern int OleGetClipboard(ref IComDataObject data);
-
-        [DllImport("ole32.dll", ExactSpelling = true, CharSet = CharSet.Auto)]
-        public static extern int OleSetClipboard(IComDataObject pDataObj);
-
-        [DllImport("ole32.dll", ExactSpelling = true, CharSet = CharSet.Auto)]
-        public static extern int OleFlushClipboard();
-
-        [DllImport("ole32.dll", ExactSpelling = true, CharSet = CharSet.Auto)]
-        public static extern void ReleaseStgMedium(ref System.Runtime.InteropServices.ComTypes.STGMEDIUM medium);
 
         // USER32
 

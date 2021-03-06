@@ -18,13 +18,13 @@ namespace ClipboardGapWpf.Formats
         public override void WriteToHandle(T obj, IntPtr ptr) => Marshal.WriteInt32(ptr, WriteToInt32(obj));
     }
 
-    class Locale : Int32Base<CultureInfo>
+    public class Locale : Int32Base<CultureInfo>
     {
         public override CultureInfo ReadFromInt32(int val) => new CultureInfo(val);
         public override int WriteToInt32(CultureInfo obj) => obj.LCID;
     }
 
-    class DropEffect : Int32Base<DragDropEffects>
+    public class DropEffect : Int32Base<DragDropEffects>
     {
         public override DragDropEffects ReadFromInt32(int val) => (DragDropEffects)val;
         public override int WriteToInt32(DragDropEffects obj) => (int)obj;

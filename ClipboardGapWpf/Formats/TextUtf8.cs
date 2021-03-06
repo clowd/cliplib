@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace ClipboardGapWpf.Formats
 {
-    class TextUtf8 : HandleDataConverterBase<string>
+    public class TextUtf8 : HandleDataConverterBase<string>
     {
         public override int GetDataSize(string obj)
         {

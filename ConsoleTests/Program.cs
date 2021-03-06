@@ -63,7 +63,7 @@ namespace ConsoleTests
                 var formats = handle.GetPresentFormats();
 
                 if (formats.Any(f => f.Id == 4))
-                    handle.GetFormat(ClipboardFormat.GetFormat(4));
+                    handle.GetFormat(ClipboardFormat.GetFormatById(4));
 
                 Console.WriteLine("Formats: ");
                 foreach (var f in formats)

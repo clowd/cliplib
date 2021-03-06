@@ -13,7 +13,32 @@ using System.Windows.Media.Imaging;
 
 namespace ClipboardGapWpf
 {
-    public class ClipboardHandle : IDisposable
+    public interface IClipboardHandle : IDisposable
+    {
+        // MISC
+        IEnumerable<ClipboardFormat> GetPresentFormats();
+        void Empty();
+
+        // TEXT
+        string GetText();
+        void SetText(string text);
+
+        // IMAGE
+        BitmapSource GetImage();
+        void SetImage(BitmapSource bitmap);
+
+        // FILE DROP
+        string[] GetFileDropList();
+        void SetFileDropList(string[] files);
+
+        // CUSTOM
+        void SetFormat<T>(ClipboardFormat<T> format, T obj);
+        void SetFormat(ClipboardFormat format, byte[] bytes);
+        byte[] GetFormat(ClipboardFormat format);
+        T GetFormat<T>(ClipboardFormat<T> format);
+    }
+
+    public class ClipboardHandle : IClipboardHandle
     {
         public bool IsDisposed { get; private set; }
 
@@ -46,7 +71,7 @@ namespace ClipboardGapWpf
             if (_hWindow == IntPtr.Zero)
                 throw new Win32Exception();
 
-            // try a few times to open the clipboard, if we fail, destroy our window and throw
+            // try a few times to open the clipboard, if we fail, destroy our window and throw with some info about the locking process
             try
             {
                 int i = 10;
@@ -114,10 +139,12 @@ namespace ClipboardGapWpf
 
         public virtual IEnumerable<ClipboardFormat> GetPresentFormats()
         {
+            ThrowIfDisposed();
+
             uint next = NativeMethods.EnumClipboardFormats(0);
             while (next != 0)
             {
-                yield return ClipboardFormat.GetFormat(next);
+                yield return ClipboardFormat.GetFormatById(next);
                 next = NativeMethods.EnumClipboardFormats(next);
             }
 
@@ -148,7 +175,9 @@ namespace ClipboardGapWpf
 
         public virtual BitmapSource GetImage()
         {
-            return GetFormat(ClipboardFormat.Png) ?? GetFormat(ClipboardFormat.Dib);
+            return GetFormat(ClipboardFormat.Png)
+                ?? GetFormat(ClipboardFormat.Dib)
+                ?? GetFormatObject(ClipboardFormat.FileDrop.Id, new ImageWpfFileDrop());
         }
 
         public virtual string[] GetFileDropList()
@@ -164,6 +193,11 @@ namespace ClipboardGapWpf
 #pragma warning restore CS0612 // Type or member is obsolete
 
             return null;
+        }
+
+        public virtual void SetFileDropList(string[] files)
+        {
+            SetFormat(ClipboardFormat.FileDrop, files);
         }
 
         public virtual T GetFormat<T>(ClipboardFormat<T> format)
@@ -233,7 +267,7 @@ namespace ClipboardGapWpf
             }
         }
 
-        public void Dispose()
+        public virtual void Dispose()
         {
             if (IsDisposed) return;
             IsDisposed = true;
