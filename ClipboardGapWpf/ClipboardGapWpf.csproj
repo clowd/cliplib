@@ -49,16 +49,14 @@
     <Compile Include="ClipboardBusyException.cs" />
     <Compile Include="ClipboardFormat.cs" />
     <Compile Include="ClipboardHandle.cs" />
+    <Compile Include="Formats\TextBasicEncoder.cs" />
     <Compile Include="NativeStructs.cs" />
     <Compile Include="Formats\ImageWpfDib.cs" />
     <Compile Include="Formats\ImageWpfFileDrop.cs" />
     <Compile Include="Formats\Int32Base.cs" />
-    <Compile Include="Formats\TextAnsi.cs" />
     <Compile Include="Formats\FileDrop.cs" />
     <Compile Include="Formats\IDataConverter.cs" />
     <Compile Include="Formats\ImageWpfBasicEncoder.cs" />
-    <Compile Include="Formats\TextUnicode.cs" />
-    <Compile Include="Formats\TextUtf8.cs" />
     <Compile Include="NativeMethods.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="StructUtil.cs" />
