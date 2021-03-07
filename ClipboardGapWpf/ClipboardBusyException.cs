@@ -8,6 +8,9 @@ namespace ClipboardGapWpf
 {
     public class ClipboardBusyException : Exception
     {
+        public int ProcessId { get; }
+        public string ProcessName { get; }
+
         public ClipboardBusyException() : base("Failed to open clipboard. Try again later.")
         {
 
@@ -29,8 +32,5 @@ namespace ClipboardGapWpf
             ProcessId = processId;
             ProcessName = processName;
         }
-
-        public int ProcessId { get; }
-        public string ProcessName { get; }
     }
 }

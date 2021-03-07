@@ -13,17 +13,19 @@ namespace ClipboardGapWpf
         {
             var size = Marshal.SizeOf(typeof(T));
             var array = new byte[size];
-            SerializeTo(s, array, 0);
+            int offset = 0;
+            SerializeTo(s, array, ref offset);
             return array;
         }
 
-        public static void SerializeTo<T>(T s, byte[] buffer, int startIndex) where T : struct
+        public static void SerializeTo<T>(T s, byte[] buffer, ref int destOffset) where T : struct
         {
             var size = Marshal.SizeOf(typeof(T));
             var ptr = Marshal.AllocHGlobal(size);
             Marshal.StructureToPtr(s, ptr, true);
-            Marshal.Copy(ptr, buffer, startIndex, size);
+            Marshal.Copy(ptr, buffer, destOffset, size);
             Marshal.FreeHGlobal(ptr);
+            destOffset += size;
         }
 
         public static T Deserialize<T>(byte[] buffer, int offset) where T : struct

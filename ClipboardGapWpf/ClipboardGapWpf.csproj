@@ -49,6 +49,7 @@
     <Compile Include="ClipboardBusyException.cs" />
     <Compile Include="ClipboardFormat.cs" />
     <Compile Include="ClipboardHandle.cs" />
+    <Compile Include="Formats\ImageWpfDibV5.cs" />
     <Compile Include="Formats\TextBasicEncoder.cs" />
     <Compile Include="NativeStructs.cs" />
     <Compile Include="Formats\ImageWpfDib.cs" />

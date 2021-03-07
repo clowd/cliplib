@@ -10,7 +10,8 @@ namespace ClipboardGapWpf
         BI_RLE4 = 2,
         BI_BITFIELDS = 3,
         BI_JPEG = 4,
-        BI_PNG = 5
+        BI_PNG = 5,
+        BI_ALPHABITFIELDS = 6,
     }
 
     [StructLayout(LayoutKind.Sequential)]
