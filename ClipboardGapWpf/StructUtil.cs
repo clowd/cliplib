@@ -37,5 +37,13 @@ namespace ClipboardGapWpf
             Marshal.FreeHGlobal(ptr);
             return s;
         }
+
+        public unsafe static T Deserialize<T>(byte* ptr, ref int offset)
+        {
+            var p = ptr + offset;
+            var mp = (IntPtr)p;
+            offset += Marshal.SizeOf<T>();
+            return (T)Marshal.PtrToStructure(mp, typeof(T));
+        }
     }
 }

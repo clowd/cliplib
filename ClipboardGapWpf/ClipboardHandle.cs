@@ -175,6 +175,8 @@ namespace ClipboardGapWpf
 
         public virtual BitmapSource GetImage()
         {
+            return GetFormatObject(ClipboardFormat.DibV5.Id, new ImageWpfDibV5());
+
             return GetFormat(ClipboardFormat.Png)
                 ?? GetFormat(ClipboardFormat.Dib)
                 ?? GetFormatObject(ClipboardFormat.FileDrop.Id, new ImageWpfFileDrop());

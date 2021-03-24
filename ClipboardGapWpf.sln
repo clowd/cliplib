@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinFormsTest", "WinFormsTes
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleTests2", "ConsoleTests2\ConsoleTests2.csproj", "{64F9EFAC-7843-4F17-85A5-AA07FABCC107}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClipboardGapWpf.Tests", "ClipboardGapWpf.Tests\ClipboardGapWpf.Tests.csproj", "{F20A22F3-BAC4-40FC-AF51-C18722615A8C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +35,10 @@ Global
 		{64F9EFAC-7843-4F17-85A5-AA07FABCC107}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{64F9EFAC-7843-4F17-85A5-AA07FABCC107}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{64F9EFAC-7843-4F17-85A5-AA07FABCC107}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F20A22F3-BAC4-40FC-AF51-C18722615A8C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F20A22F3-BAC4-40FC-AF51-C18722615A8C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F20A22F3-BAC4-40FC-AF51-C18722615A8C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F20A22F3-BAC4-40FC-AF51-C18722615A8C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

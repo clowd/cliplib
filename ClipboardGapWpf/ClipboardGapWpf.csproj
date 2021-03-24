@@ -37,6 +37,7 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Drawing" />
+    <Reference Include="System.Numerics" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -50,6 +51,7 @@
     <Compile Include="ClipboardFormat.cs" />
     <Compile Include="ClipboardHandle.cs" />
     <Compile Include="Formats\ImageWpfDibV5.cs" />
+    <Compile Include="Formats\lcms.cs" />
     <Compile Include="Formats\TextBasicEncoder.cs" />
     <Compile Include="NativeStructs.cs" />
     <Compile Include="Formats\ImageWpfDib.cs" />

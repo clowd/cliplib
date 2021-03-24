@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Media.Imaging;
@@ -32,6 +33,48 @@ namespace ConsoleTests
     {
         unsafe static void Main(string[] args)
         {
+            //0-64
+            //0-256
+            //0b_1111_1000;
+
+            //uint maskR = 0xF800;
+            //uint bR = 0b1111_1000_0000_0000;
+
+            //if (val & 0xFFFFFF00 == 0)
+            //{
+
+            //}
+
+            //if(val <= 0xFF)
+
+            //maskG = 0x03e0;
+            //maskB = 0x001f;
+
+
+            using (var handle = ClipboardHandle.Open())
+            {
+                var bitssmap = handle.GetImage();
+            }
+
+
+            return;
+            var pngStream = Assembly.GetExecutingAssembly().GetManifestResourceStream("ConsoleTests.bitmapreadtest.png");
+
+            PngBitmapDecoder png = new PngBitmapDecoder(pngStream, BitmapCreateOptions.None, BitmapCacheOption.OnLoad);
+
+            var bitmap = png.Frames[0];
+
+            BmpBitmapEncoder bmp = new BmpBitmapEncoder();
+            bmp.Frames.Add(bitmap);
+
+            var ms = new MemoryStream();
+            bmp.Save(ms);
+
+            var conv = new ClipboardGapWpf.Formats.ImageWpfDibV5();
+
+            conv.ReadFromBytes(ms.GetBuffer());
+
+            return;
 
             //using (var handle = ClipboardHandle.Open())
             //{

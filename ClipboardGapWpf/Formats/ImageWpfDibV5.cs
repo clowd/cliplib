@@ -18,7 +18,9 @@ namespace ClipboardGapWpf.Formats
             LCS_CALIBRATED_RGB = 0,
             LCS_sRGB = 0x73524742, // 'sRGB'
             LCS_WINDOWS_COLOR_SPACE = 0x57696e20, // 'Win '
-            LCS_GM_IMAGES = 4;
+            LCS_GM_IMAGES = 4,
+            PROFILE_LINKED = 1279872587,
+            PROFILE_EMBEDDED = 1296188740;
 
         // http://paulbourke.net/dataformats/bitmaps/
         // http://www.libertybasicuniversity.com/lbnews/nl100/format.htm
@@ -59,12 +61,10 @@ namespace ClipboardGapWpf.Formats
             //return result;
         }
 
-        static int pixelPerMeterToDpi(int pels)
+        static double pixelPerMeterToDpi(int pels)
         {
-            if (pels == 0)
-                return 96;
-
-            return (int)(pels * 0.0254d);
+            if (pels == 0) return 96;
+            return pels * 0.0254d;
         }
 
         public unsafe override BitmapSource ReadFromBytes(byte[] data)
@@ -73,53 +73,185 @@ namespace ClipboardGapWpf.Formats
             {
                 bool hasFileHeader = BitConverter.ToUInt16(data, 0) == BFH_BM;
                 var size_fh = Marshal.SizeOf<BITMAPFILEHEADER>();
-                var size_bi = Marshal.SizeOf<BITMAPINFOHEADER>();
-                var size_biv5 = Marshal.SizeOf<BITMAPV5HEADER>();
 
                 int offset = 0;
                 var fh = default(BITMAPFILEHEADER);
                 if (hasFileHeader)
                     fh = StructUtil.Deserialize<BITMAPFILEHEADER>(bufferStart, ref offset);
 
-                var bi = StructUtil.Deserialize<BITMAPINFOHEADER>(data, offset);
-                var biv5 = StructUtil.Deserialize<BITMAPV5HEADER>(data, offset);
-                bool isv5 = false;
+                // we'll just unpack all the various header types we support into a standard BMPV5 header 
+                // this makes subsequent code easier to maintain as it only needs to refer to one place
 
-                if (bi.bV5Size != size_bi && bi.bV5Size != size_biv5)
-                    throw new NotSupportedException($"Bitmap header of size '{bi.bV5Size}' is not supported. Expected {size_bi} or {size_biv5}.");
+                var header_size = BitConverter.ToUInt32(data, offset);
+                var bi = default(BITMAPV5HEADER);
+                bool is_os21x_ = false;
 
-                if (bi.bV5Size == size_biv5)
+                if (header_size == 12)
                 {
-                    isv5 = true;
-                    biv5 =
+                    var bich = StructUtil.Deserialize<BITMAPCOREHEADER>(data, offset);
+                    bi.bV5Size = bich.bcSize;
+                    bi.bV5Width = bich.bcWidth;
+                    bi.bV5Height = bich.bcHeight;
+                    bi.bV5Planes = bich.bcPlanes;
+                    bi.bV5BitCount = bich.bcBitCount;
+
+                    bi.bV5CSType = LCS_sRGB;
+                    is_os21x_ = true;
+                }
+                else if (/*header_size == 14 || */header_size == 16 || header_size == 42 || header_size == 46 || header_size == 64)
+                {
+                    var biih = StructUtil.Deserialize<BITMAPINFOHEADER>(data, offset);
+                    bi.bV5Size = biih.bV5Size;
+                    bi.bV5Width = biih.bV5Width;
+                    bi.bV5Height = biih.bV5Height;
+                    bi.bV5Planes = biih.bV5Planes;
+                    bi.bV5BitCount = biih.bV5BitCount;
+
+                    if (header_size > 16)
+                    {
+                        bi.bV5Compression = biih.bV5Compression;
+                        bi.bV5SizeImage = biih.bV5SizeImage;
+                        bi.bV5XPelsPerMeter = biih.bV5XPelsPerMeter;
+                        bi.bV5YPelsPerMeter = biih.bV5YPelsPerMeter;
+                        bi.bV5ClrUsed = biih.bV5ClrUsed;
+                        bi.bV5ClrImportant = biih.bV5ClrImportant;
+                    }
+
+                    // https://www.fileformat.info/mirror/egff/ch09_05.htm (G31D)
+                    if (bi.bV5Compression == (BitmapCompressionMode)3 && bi.bV5BitCount == 1)
+                        bi.bV5Compression = BitmapCompressionMode.HUFFMAN1D;
+
+                    else if (bi.bV5Compression == (BitmapCompressionMode)4 && bi.bV5BitCount == 24)
+                        bi.bV5Compression = BitmapCompressionMode.RLE24;
+
+                    bi.bV5CSType = LCS_sRGB;
+
+                }
+                else if (header_size == 40)
+                {
+                    var biih = StructUtil.Deserialize<BITMAPINFOHEADER>(data, offset);
+                    bi.bV5Size = biih.bV5Size;
+                    bi.bV5Width = biih.bV5Width;
+                    bi.bV5Height = biih.bV5Height;
+                    bi.bV5Planes = biih.bV5Planes;
+                    bi.bV5BitCount = biih.bV5BitCount;
+                    bi.bV5Compression = biih.bV5Compression;
+                    bi.bV5SizeImage = biih.bV5SizeImage;
+                    bi.bV5XPelsPerMeter = biih.bV5XPelsPerMeter;
+                    bi.bV5YPelsPerMeter = biih.bV5YPelsPerMeter;
+                    bi.bV5ClrUsed = biih.bV5ClrUsed;
+                    bi.bV5ClrImportant = biih.bV5ClrImportant;
+
+                    bi.bV5CSType = LCS_sRGB;
+                }
+                else if (header_size == 52 || header_size == 56)
+                {
+                    var biih = StructUtil.Deserialize<BITMAPV3INFOHEADER>(data, offset);
+                    bi.bV5Size = biih.bV5Size;
+                    bi.bV5Width = biih.bV5Width;
+                    bi.bV5Height = biih.bV5Height;
+                    bi.bV5Planes = biih.bV5Planes;
+                    bi.bV5BitCount = biih.bV5BitCount;
+                    bi.bV5Compression = biih.bV5Compression;
+                    bi.bV5SizeImage = biih.bV5SizeImage;
+                    bi.bV5XPelsPerMeter = biih.bV5XPelsPerMeter;
+                    bi.bV5YPelsPerMeter = biih.bV5YPelsPerMeter;
+                    bi.bV5ClrUsed = biih.bV5ClrUsed;
+                    bi.bV5ClrImportant = biih.bV5ClrImportant;
+                    bi.bV5RedMask = biih.bV5RedMask;
+                    bi.bV5GreenMask = biih.bV5GreenMask;
+                    bi.bV5BlueMask = biih.bV5BlueMask;
+
+                    if (header_size == 56) // 56b header adds alpha mask
+                        bi.bV5AlphaMask = biih.bV5AlphaMask;
+
+                    bi.bV5CSType = LCS_sRGB;
+                }
+                else if (header_size == 108)
+                {
+                    var biih = StructUtil.Deserialize<BITMAPV4HEADER>(data, offset);
+                    bi.bV5Size = biih.bV5Size;
+                    bi.bV5Width = biih.bV5Width;
+                    bi.bV5Height = biih.bV5Height;
+                    bi.bV5Planes = biih.bV5Planes;
+                    bi.bV5BitCount = biih.bV5BitCount;
+                    bi.bV5Compression = biih.bV5Compression;
+                    bi.bV5SizeImage = biih.bV5SizeImage;
+                    bi.bV5XPelsPerMeter = biih.bV5XPelsPerMeter;
+                    bi.bV5YPelsPerMeter = biih.bV5YPelsPerMeter;
+                    bi.bV5ClrUsed = biih.bV5ClrUsed;
+                    bi.bV5ClrImportant = biih.bV5ClrImportant;
+                    bi.bV5RedMask = biih.bV5RedMask;
+                    bi.bV5GreenMask = biih.bV5GreenMask;
+                    bi.bV5BlueMask = biih.bV5BlueMask;
+                    bi.bV5AlphaMask = biih.bV5AlphaMask;
+                    bi.bV5CSType = biih.bV5CSType;
+                    bi.bV5Endpoints_1x = biih.bV5Endpoints_1x;
+                    bi.bV5Endpoints_1y = biih.bV5Endpoints_1y;
+                    bi.bV5Endpoints_1z = biih.bV5Endpoints_1z;
+                    bi.bV5Endpoints_2x = biih.bV5Endpoints_2x;
+                    bi.bV5Endpoints_2y = biih.bV5Endpoints_2y;
+                    bi.bV5Endpoints_2z = biih.bV5Endpoints_2z;
+                    bi.bV5Endpoints_3x = biih.bV5Endpoints_3x;
+                    bi.bV5Endpoints_3y = biih.bV5Endpoints_3y;
+                    bi.bV5Endpoints_3z = biih.bV5Endpoints_3z;
+                    bi.bV5GammaRed = biih.bV5GammaRed;
+                    bi.bV5GammaGreen = biih.bV5GammaGreen;
+                    bi.bV5GammaBlue = biih.bV5GammaBlue;
+                }
+                else if (header_size == 124)
+                {
+                    bi = StructUtil.Deserialize<BITMAPV5HEADER>(data, offset);
+                }
+                else
+                {
+                    throw new NotSupportedException($"Bitmap header size '{header_size}' not supported, expected 12, 40, 52, 56, 108, or 124.");
                 }
 
-                offset += (int)bi.bV5Size;
+                offset += (int)header_size;
+
+                // https://github.com/SixLabors/ImageSharp/blob/master/src/ImageSharp/Formats/Bmp/BmpDecoderCore.cs
+                // https://dxr.mozilla.org/mozilla-central/source/image/decoders/nsBMPDecoder.cpp
 
                 int nbits = bi.bV5BitCount;
 
-                //if (nbits != 24 && nbits != 32 && nbits != 16)
+                //if (nbits != 32 && nbits != 24 &&  && nbits != 16)
                 //    throw new NotSupportedException($"Bitmaps with bpp of '{nbits}' are not supported. Expected 16, 24, or 32.");
 
                 if (bi.bV5Planes != 1)
                     throw new NotSupportedException($"Bitmap bV5Planes of '{bi.bV5Planes}' is not supported.");
 
-                if (isv5 && (biv5.bV5CSType != LCS_sRGB && biv5.bV5CSType != LCS_WINDOWS_COLOR_SPACE))
-                    throw new NotSupportedException($"Bitmap with color space type of '{biv5.bV5CSType}' is not supported.");
+                if (bi.bV5CSType != LCS_sRGB && bi.bV5CSType != LCS_WINDOWS_COLOR_SPACE && bi.bV5CSType != PROFILE_EMBEDDED && bi.bV5CSType != LCS_CALIBRATED_RGB)
+                    throw new NotSupportedException($"Bitmap with header size '{header_size}' and color space of '{bi.bV5CSType}' is not supported.");
 
                 uint maskR = 0;
                 uint maskG = 0;
                 uint maskB = 0;
                 uint maskA = 0;
 
-                bool hasAlphaChannel = false, hasRgbMask = false;
+                bool hasAlphaChannel = false;
 
                 switch (bi.bV5Compression)
                 {
                     case BitmapCompressionMode.BI_BITFIELDS:
-                        // seems that v5 bitmaps with >= 16 bits do not have a color table, despite BI_BITFIELDS
-                        // saying it should
-                        if (nbits < 16 || !isv5)
+                        // seems that v5 bitmaps sometimes do not have a color table, even if BI_BITFIELDS is set
+                        // we read/skip them here anyways, if we have a file header we can correct the offset later
+                        // whether or not these follow the header depends entirely on the application..
+                        // if (header_size <= 40)
+                        // {
+
+                        // OS/2 bitmaps are only 9 bytes here instead of 12 as they are not aligned
+
+                        //if (is_os21x_)
+                        //{
+                        //    maskR = BitConverter.ToUInt32(data, offset) & 0x00FF_FFFF;
+                        //    offset += 3;
+                        //    maskG = BitConverter.ToUInt32(data, offset) & 0x00FF_FFFF;
+                        //    offset += 3;
+                        //    maskB = BitConverter.ToUInt32(data, offset) & 0x00FF_FFFF;
+                        //    offset += 3;
+                        //}
+                        //else
                         {
                             maskR = BitConverter.ToUInt32(data, offset);
                             offset += sizeof(uint);
@@ -127,8 +259,11 @@ namespace ClipboardGapWpf.Formats
                             offset += sizeof(uint);
                             maskB = BitConverter.ToUInt32(data, offset);
                             offset += sizeof(uint);
-                            hasRgbMask = true;
                         }
+
+                        // maskR | maskG | maskB == 1 << nbits - 1
+                        // do these overlap, and do they add up to 0xFFFFFF
+                        // }
                         break;
                     case BitmapCompressionMode.BI_ALPHABITFIELDS:
                         maskR = BitConverter.ToUInt32(data, offset);
@@ -139,7 +274,7 @@ namespace ClipboardGapWpf.Formats
                         offset += sizeof(uint);
                         maskA = BitConverter.ToUInt32(data, offset);
                         offset += sizeof(uint);
-                        hasAlphaChannel = hasRgbMask = true;
+                        hasAlphaChannel = true;
                         break;
                     case BitmapCompressionMode.BI_RGB:
                         switch (nbits)
@@ -151,20 +286,17 @@ namespace ClipboardGapWpf.Formats
                                 maskG = 0xff00;
                                 maskB = 0xff;
                                 maskA = 0xff000000; // fake transparency?
-                                hasRgbMask = true;
                                 break;
                             case 24:
                                 maskR = 0xff0000;
                                 maskG = 0xff00;
                                 maskB = 0xff;
-                                hasRgbMask = true;
                                 break;
                             case 16:
                                 maskR = 0x7c00;
                                 maskG = 0x03e0;
                                 maskB = 0x001f;
                                 maskA = 0x8000; // fake transparency?
-                                hasRgbMask = true;
                                 break;
                         }
                         break;
@@ -176,43 +308,71 @@ namespace ClipboardGapWpf.Formats
                         if (nbits != 8) throw new NotSupportedException("RLE8 encoded bitmaps must have 8 bpp");
                         if (bi.bV5Height < 0) throw new NotSupportedException("Top-down bitmaps are not supported with RLE compression.");
                         break;
+                    case BitmapCompressionMode.BI_JPEG:
+                        byte[] jpegImg = new byte[bi.bV5SizeImage];
+                        var jpegOffset = (hasFileHeader ? size_fh : 0) + (int)bi.bV5Size;
+                        if (jpegImg.Length == 0)
+                            throw new NotSupportedException("Bitmap bV5SizeImage must be > 0 with BI_JPEG compression.");
+                        Buffer.BlockCopy(data, jpegOffset, jpegImg, 0, jpegImg.Length);
+                        var jpg = new JpegBitmapDecoder(new MemoryStream(jpegImg), BitmapCreateOptions.None, BitmapCacheOption.OnLoad);
+                        return jpg.Frames[0];
+                    case BitmapCompressionMode.BI_PNG:
+                        byte[] pngImg = new byte[bi.bV5SizeImage];
+                        var pngOffset = (hasFileHeader ? size_fh : 0) + (int)bi.bV5Size;
+                        if (pngImg.Length == 0)
+                            throw new NotSupportedException("Bitmap bV5SizeImage must be > 0 with BI_PNG compression.");
+                        Buffer.BlockCopy(data, pngOffset, pngImg, 0, pngImg.Length);
+                        var png = new PngBitmapDecoder(new MemoryStream(pngImg), BitmapCreateOptions.None, BitmapCacheOption.OnLoad);
+                        return png.Frames[0];
                     default:
                         throw new NotSupportedException($"Bitmap with bV5Compression of '{bi.bV5Compression.ToString()}' is not supported.");
                 }
 
                 // The number of entries in the palette is either 2n (where n is the number of bits per pixel) or a smaller number specified in the header
-                RGBQUAD[] palette = new RGBQUAD[0];
+                // always allocate at least 256 entries so we can ignore bad data which seeks past the end of palette data.
 
-                if (bi.bV5ClrUsed > 0 || nbits < 16)
+                var pallength = nbits < 16 ? (1 << nbits) : 0;
+                if (bi.bV5ClrUsed > 0)
+                    pallength = (int)bi.bV5ClrUsed;
+
+                //var bitsperpal = is_os21x_ ? 3 : 4;
+                //var palmax = (data.Length - offset - bi.bV5SizeImage) / bitsperpal;
+
+                if (pallength > 65536)
+                    throw new NotSupportedException("Bitmap has an oversized/invalid color palette.");
+
+                RGBQUAD[] palette = new RGBQUAD[pallength];
+                for (int i = 0; i < palette.Length; i++)
                 {
-                    palette = new RGBQUAD[bi.bV5ClrUsed != 0 ? (int)bi.bV5ClrUsed : (1 << nbits)];
-                    for (int i = 0; i < palette.Length; i++)
+                    if (is_os21x_)
+                    {
+                        var small = StructUtil.Deserialize<RGBTRIPLE>(bufferStart, ref offset);
+                        palette[i] = new RGBQUAD { rgbBlue = small.rgbBlue, rgbGreen = small.rgbGreen, rgbRed = small.rgbRed };
+                    }
+                    else
                     {
                         palette[i] = StructUtil.Deserialize<RGBQUAD>(bufferStart, ref offset);
                     }
                 }
 
-                if (palette.Length > Math.Pow(2, nbits))
-                    throw new NotSupportedException("Bitmap palette invalid.");
-
-                if (palette.Length > 256)
-                    throw new NotSupportedException("Bitmap palette with more than 256 colors are not supported.");
-
-                if (isv5)
+                // lets use the v3/v4/v5 masks if present instead of BITFIELDS or RGB
+                if (bi.bV5RedMask != 0) maskR = bi.bV5RedMask;
+                if (bi.bV5BlueMask != 0) maskB = bi.bV5BlueMask;
+                if (bi.bV5GreenMask != 0) maskG = bi.bV5GreenMask;
+                if (bi.bV5AlphaMask != 0)
                 {
-                    // lets use the v5 masks if present as this seems to be typical
-                    if (biv5.bV5RedMask != 0) maskR = biv5.bV5RedMask;
-                    if (biv5.bV5BlueMask != 0) maskB = biv5.bV5BlueMask;
-                    if (biv5.bV5GreenMask != 0) maskG = biv5.bV5GreenMask;
-                    if (biv5.bV5AlphaMask != 0)
-                    {
-                        maskA = biv5.bV5AlphaMask;
-                        hasAlphaChannel = true;
-                    }
-
-                    if (maskR != 0 && maskB != 0 && maskG != 0)
-                        hasRgbMask = true;
+                    maskA = bi.bV5AlphaMask;
+                    hasAlphaChannel = true;
                 }
+
+                bool smBit = nbits == 1 || nbits == 2 || nbits == 4 || nbits == 8;
+                bool lgBit = nbits == 16 || nbits == 24 || nbits == 32;
+
+                if (!lgBit && !smBit)
+                    throw new NotSupportedException($"Bitmap with bits per pixel of '{nbits}' are not supported.");
+
+                if (lgBit && (maskR == 0 || maskB == 0 || maskG == 0))
+                    throw new NotSupportedException($"Bitmap (bbp {nbits}) color masks could not be determined, this usually indicates a malformed bitmap file.");
 
                 // For RGB DIBs, the image orientation is indicated by the biHeight member of the BITMAPINFOHEADER structure. 
                 // If biHeight is positive, the image is bottom-up. If biHeight is negative, the image is top-down.
@@ -278,14 +438,6 @@ namespace ClipboardGapWpf.Formats
 
                 bitmap.Lock();
 
-                //var test4 = new byte[data.Length - offset];
-                //Buffer.BlockCopy(data, offset, test4, 0, data.Length - offset);
-                //Console.WriteLine();
-                //byte* dest = (byte*)bitmap.BackBuffer;
-                //byte* source = (byte*)(bufferStart + offset);
-
-                //var num_bytes = (nbits / 8);
-
                 if (hasFileHeader && fh.bfOffBits != 0)
                     offset = (int)fh.bfOffBits;
 
@@ -300,65 +452,6 @@ namespace ClipboardGapWpf.Formats
                 uint* dest;
                 int y, x, w, h = height, nbytes = (nbits / 8);
 
-                //if (bi.bV5Compression == BitmapCompressionMode.BI_RLE8 && nbits == 8)
-                //{
-                //    byte firstByte, secondByte;
-                //    x = y = 0;
-                //    y = height - h - 1;
-                //    while (true)
-                //    {
-                //        source = bufferStart + offset + (y * source_stride);
-                //        dest = (uint*)(bitmap.BackBuffer + ((upside_down ? y : h) * dest_stride));
-
-                //        firstByte = *source;
-                //        source++;
-
-                //        if (0 != firstByte)
-                //        {
-                //            secondByte = *source;
-                //            for (i = 0; i < firstByte; i++)
-                //            {
-                //                plot_pixel(currX, currY, secondByte);
-                //                currX++;
-                //            }
-                //            source++;
-                //        }
-                //        else   // value is zero  
-                //        {
-                //            firstByte = *source;            // store next byte  
-                //            source++;
-
-                //            switch (firstByte)
-                //            {
-                //                case 0:
-                //                    x = 0;
-                //                    y++;
-                //                    currY++;                       // move cursor to beginning of next line  
-                //                    break;
-                //                case 1:
-                //                    state = ERR_NONE;
-                //                    return ERR_NONE;               // end of bitmap, finish plotting  
-                //                case 2:
-                //                    currX += (int)(*ImageData);    // read byte and add value to x value  
-                //                    ImageData++;
-                //                    currY += (int)(*ImageData);    // read byte and add value to y value  
-                //                    ImageData++;
-                //                    break;
-                //                // for any other value, print the next firstByte bytes  
-                //                default:
-                //                    for (i = 0; i < firstByte; i++)
-                //                    {
-                //                        secondByte = *ImageData;
-                //                        plot_pixel(currX, currY, secondByte);
-                //                        ImageData++;
-                //                        currX++;
-                //                    }
-                //                    if (0 != firstByte & 0x01)      // if the run doesn't end on a word boundary,   
-                //                        ImageData++;                 // advance the pointer  
-                //            } // END switch  
-                //        } // END else  
-                //    } // END while  
-                //}
                 if (bi.bV5Compression == BitmapCompressionMode.BI_RLE8)
                 {
                     byte op1, op2;
@@ -445,7 +538,7 @@ namespace ClipboardGapWpf.Formats
                             {
                                 break;
                             }
-                            else if (op2 == 2)
+                            else if (op2 == 2) // offset
                             {
                                 x += data[offset++]; // X pos
                                 y += data[offset++]; // Y pos
@@ -523,56 +616,6 @@ namespace ClipboardGapWpf.Formats
                         }
                     }
                 }
-                //else if (palette.Length > 0 && (nbits == 1 || nbits == 2 || nbits == 4 || nbits == 8))
-                //{
-                //    var px_per_byte = 8 / nbits;
-                //    var px_remain = width % px_per_byte;
-                //    var row_max = px_per_byte == 1 ? width : px_remain > 0 ? (source_stride - 1) : source_stride;
-
-                //    uint mask_template = 1;
-                //    for (int i = 0; i < nbits - 1; i++)
-                //    {
-                //        mask_template <<= 1;
-                //        mask_template++;
-                //    }
-
-                //    uint[] masks = new uint[px_per_byte];
-                //    int[] shifts = new int[px_per_byte];
-
-                //    for (int i = px_per_byte - 1; i >= 0; i--)
-                //    {
-                //        var z = -(i - px_per_byte + 1);
-                //        int shift = i * nbits;
-                //        shifts[z] = shift;
-                //        masks[z] = mask_template << shift;
-                //    }
-
-                //    while (--h >= 0)
-                //    {
-                //        dest = (uint*)(bitmap.BackBuffer + ((upside_down ? height - h - 1 : h) * dest_stride));
-                //        source = bufferStart + offset + ((height - h - 1) * source_stride);
-
-                //        for (int x = 0; x < row_max; x++)
-                //        {
-                //            s1 = *source++;
-                //            for (int z = 0; z < px_per_byte; z++)
-                //            {
-                //                byte px = (byte)((s1 & masks[z]) >> shifts[z]);
-                //                var color = palette[px % pal];
-                //                *dest++ = (uint)((color.rgbBlue) | (color.rgbGreen << 8) | (color.rgbRed << 16) | (0xFF << 24));
-                //            }
-                //        }
-
-                //        // last bits in a row might not make up a whole byte
-                //        s1 = *source++;
-                //        for (int z = 0; z < px_remain; z++)
-                //        {
-                //            byte px = (byte)((s1 & masks[z]) >> shifts[z]);
-                //            var color = palette[px % pal];
-                //            *dest++ = (uint)((color.rgbBlue) | (color.rgbGreen << 8) | (color.rgbRed << 16) | (0xFF << 24));
-                //        }
-                //    }
-                //}
                 else if (nbits == 2)
                 {
                     var px_remain = width % 4;
@@ -665,7 +708,7 @@ namespace ClipboardGapWpf.Formats
                         }
                     }
                 }
-                else if (nbits >= 16 && hasRgbMask && hasAlphaChannel)
+                else if (nbits >= 16 && hasAlphaChannel)
                 {
                     while (--h >= 0)
                     {
@@ -682,17 +725,12 @@ namespace ClipboardGapWpf.Formats
                             r = (byte)((((i32 & maskR) >> shiftR) * multR) >> 24);
                             a = (byte)((((i32 & maskA) >> shiftA) * multA) >> 24);
 
-                            //b = (byte)(((s32 & maskB) >> shiftB) * 255 / maxB);
-                            //g = (byte)(((s32 & maskG) >> shiftG) * 255 / maxG);
-                            //r = (byte)(((s32 & maskR) >> shiftR) * 255 / maxR);
-                            //a = (byte)(((s32 & maskA) >> shiftA) * 255 / maxA);
-
                             *dest++ = (uint)((b) | (g << 8) | (r << 16) | (a << 24));
                             source += nbytes;
                         }
                     }
                 }
-                else if (nbits >= 16 && hasRgbMask && maskA != 0) // hasAlpha = false, and maskA != 0 - we might have _fake_ alpha.. need to check for it
+                else if (nbits >= 16 && maskA != 0) // hasAlpha = false, and maskA != 0 - we might have _fake_ alpha.. need to check for it
                 {
                     while (--h >= 0)
                     {
@@ -721,7 +759,7 @@ namespace ClipboardGapWpf.Formats
                         }
                     }
                 }
-                else if (nbits >= 16 && hasRgbMask) // simple bmp, no transparency
+                else if (nbits >= 16) // simple bmp, no transparency
                 {
                     while (--h >= 0)
                     {
@@ -741,127 +779,49 @@ namespace ClipboardGapWpf.Formats
                         }
                     }
                 }
-                //else if (hasRgbMask && maskA != 0) // hasAlpha = false, and maskA != 0 - we might have _fake_ alpha.. need to check for it
-                //{
-                //    while (--h >= 0)
-                //    {
-                //        dest = (byte*)(bitmap.BackBuffer + ((upside_down ? height - h - 1 : h) * dest_stride));
-                //        source = (byte*)(bufferStart + offset + ((height - h - 1) * source_stride));
-                //        w = width;
-
-                //        while (--w >= 0)
-                //        {
-                //            s32 = *(uint*)source;
-                //            b = (byte)((((s32 & maskB) >> shiftB) * multB) >> 24);
-                //            g = (byte)((((s32 & maskG) >> shiftG) * multG) >> 24);
-                //            r = (byte)((((s32 & maskR) >> shiftR) * multR) >> 24);
-                //            a = (byte)((((s32 & maskA) >> shiftA) * multA) >> 24);
-
-                //            if (a != 0)
-                //            {
-                //                // this BMP should not have an alpha channel, but windows likes doing this and we need to detect it
-                //                hasAlphaChannel = true;
-                //                goto restartLoop;
-                //            }
-
-                //            *(uint*)dest = (uint)((b) | (g << 8) | (r << 16) | (0xFF << 24));
-                //            source += nbytes;
-                //            dest += 4;
-                //        }
-                //    }
-                //}
-                //else if (hasRgbMask) /*if (nbits == 32 || nbits == 24)*/ // this bitmap has no alpha data
-                //{
-                //    while (--h >= 0)
-                //    {
-                //        dest = (byte*)(bitmap.BackBuffer + ((upside_down ? height - h - 1 : h) * dest_stride));
-                //        source = (byte*)(bufferStart + offset + ((height - h - 1) * source_stride));
-                //        w = width;
-
-                //        while (--w >= 0)
-                //        {
-                //            s32 = *(uint*)source;
-                //            b = (byte)((((s32 & maskB) >> shiftB) * multB) >> 24);
-                //            g = (byte)((((s32 & maskG) >> shiftG) * multG) >> 24);
-                //            r = (byte)((((s32 & maskR) >> shiftR) * multR) >> 24);
-
-                //            *(uint*)dest = (uint)((b) | (g << 8) | (r << 16) | (0xFF << 24));
-                //            source += nbytes;
-                //            dest += 4;
-                //        }
-                //    }
-                //}
                 else
                 {
-                    throw new NotSupportedException($"Bitmap combination of compression ({bi.bV5Compression.ToString()}), palette length ({pal}), bits-per-pixel ({nbits}) and bit-mask (present: {hasRgbMask}) is not supported.");
+                    throw new NotSupportedException($"Bitmap combination of header length ({header_size}) compression ({bi.bV5Compression.ToString()}), palette length ({pal}), bits-per-pixel ({nbits}) is not supported.");
                 }
-                //else if (nbits == 16)
-                //{
-                //    while (--h >= 0)
-                //    {
-                //        dest = (byte*)(bitmap.BackBuffer + ((upside_down ? height - h - 1 : h) * dest_stride));
-                //        source = (byte*)(bufferStart + offset + ((height - h - 1) * source_stride));
-                //        w = width;
 
-                //        while (--w >= 0)
-                //        {
-                //            s16 = *(ushort*)source;
+                // transform any embedded color profile to sRGB
+                if (bi.bV5CSType == PROFILE_EMBEDDED)
+                {
+                    var profileSize = bi.bV5ProfileSize;
+                    var profileOffset = (hasFileHeader ? size_fh : 0) + (int)bi.bV5ProfileData;
 
-                //            b = (byte)((((s16 & maskB) >> shiftB) * multB) >> 24);
-                //            g = (byte)((((s16 & maskG) >> shiftG) * multG) >> 24);
-                //            r = (byte)((((s16 & maskR) >> shiftR) * multR) >> 24);
+                    var test = lcms.GetWpfContext(bufferStart + profileOffset, profileSize);
 
-                //            *(uint*)dest = (uint)((b) | (g << 8) | (r << 16) | (0xFF << 24));
-                //            source += numbytes;
-                //            dest += 4;
-                //        }
-                //    }
-                //}
-                //else if (nbits == 32) // this bitmap has no alpha
-                //{
-                //    while (--h >= 0)
-                //    {
-                //        dest = (byte*)(bitmap.BackBuffer + ((upside_down ? height - h - 1 : h) * stride));
-                //        source = (byte*)(bufferStart + offset + ((height - h - 1) * stride));
-                //        w = width;
+                    bitmap.AddDirtyRect(new System.Windows.Int32Rect(0, 0, width, height));
+                    bitmap.Unlock();
+                    bitmap.Freeze(); // dispose back buffer
+                    var bl = new ColorContext[] { test }.ToList();
+                    return BitmapFrame.Create(bitmap, null, null, new System.Collections.ObjectModel.ReadOnlyCollection<ColorContext>(bl));
 
-                //        while (--w >= 0)
-                //        {
-                //            s32 = *(uint*)source;
-                //            b = (byte)((((s32 & maskB) >> shiftB) * multB) >> 24);
-                //            g = (byte)((((s32 & maskG) >> shiftG) * multG) >> 24);
-                //            r = (byte)((((s32 & maskR) >> shiftR) * multR) >> 24);
-                //            a = 0xFF;
-                //            *(uint*)dest = (uint)((b) | (g << 8) | (r << 16) | (a << 24));
-                //            source += 4;
-                //            dest += 4;
-                //        }
-                //    }
-                //}
-                //else if (nbits == 24)
-                //{
-                //    while (--h >= 0)
-                //    {
-                //        var y = upside_down ? height - h - 1 : h;
-                //        byte* dest = (byte*)(bitmap.BackBuffer + (y * stride));
-                //        byte* source = (byte*)(bufferStart + offset + (y * stride));
+                    lcms.TransformEmbeddedBGRA(bufferStart + profileOffset, profileSize, bitmap.BackBuffer, width, height, dest_stride, lcms.Intent.Perceptual);
+                }
+                else if (bi.bV5CSType == LCS_CALIBRATED_RGB)
+                {
+                    var primaries = lcms.GetPrimariesFromBMPEndpoints(
+                        bi.bV5Endpoints_1x, bi.bV5Endpoints_1y,
+                        bi.bV5Endpoints_2x, bi.bV5Endpoints_2y,
+                        bi.bV5Endpoints_3x, bi.bV5Endpoints_3y);
 
-                //        var w = width;
-                //        while (--w >= 0)
-                //        {
-                //            var s32 = *(uint*)source;
-                //            byte b = (byte)((s32 & maskB) >> shiftB);
-                //            byte g = (byte)((s32 & maskG) >> shiftG);
-                //            byte r = (byte)((s32 & maskR) >> shiftR);
-                //            *(uint*)dest = (uint)((b) | (g << 8) | (r << 16) | (0xFF << 24));
-                //            source += 3;
-                //            dest += 4;
-                //        }
-                //    }
-                //}
+                    var whitepoint = lcms.GetWhitePoint_sRGB();
+
+                    lcms.TransformCalibratedBGRA(
+                        primaries, whitepoint,
+                        bi.bV5GammaRed, bi.bV5GammaGreen, bi.bV5GammaBlue,
+                        bitmap.BackBuffer, width, height, dest_stride, lcms.Intent.Perceptual);
+                }
 
                 bitmap.AddDirtyRect(new System.Windows.Int32Rect(0, 0, width, height));
                 bitmap.Unlock();
+                bitmap.Freeze(); // dispose back buffer
+
+                //var frame = BitmapFrame.Create(bitmap);
+                //frame.ColorContexts
+
                 return bitmap;
             }
         }
