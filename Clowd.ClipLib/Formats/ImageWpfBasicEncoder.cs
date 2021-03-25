@@ -1,14 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Media.Imaging;
 
-namespace ClipboardGapWpf.Formats
+namespace Clowd.ClipLib.Formats
 {
-
     public abstract class ImageWpfBasicEncoder : BytesDataConverterBase<BitmapSource>
     {
         public override BitmapSource ReadFromBytes(byte[] data)

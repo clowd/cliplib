@@ -7,8 +7,8 @@
     <ProjectGuid>{53BE7B55-C23A-46C6-B29B-6B4FA7ABDA60}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>ClipboardGapWpf</RootNamespace>
-    <AssemblyName>ClipboardGapWpf</AssemblyName>
+    <RootNamespace>Clowd.ClipLib</RootNamespace>
+    <AssemblyName>Clowd.ClipLib</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>

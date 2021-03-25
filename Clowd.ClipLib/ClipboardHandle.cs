@@ -1,5 +1,5 @@
-﻿using ClipboardGapWpf.Formats;
-using Clowd.BmpLib;
+﻿using Clowd.BmpLib;
+using Clowd.ClipLib.Formats;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -7,12 +7,11 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Media.Imaging;
 
-namespace ClipboardGapWpf
+namespace Clowd.ClipLib
 {
     //public interface IClipboardHandle : IDisposable
     //{

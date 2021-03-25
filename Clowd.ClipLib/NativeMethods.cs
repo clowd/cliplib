@@ -2,7 +2,7 @@
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace ClipboardGapWpf
+namespace Clowd.ClipLib
 {
     internal class NativeMethods
     {

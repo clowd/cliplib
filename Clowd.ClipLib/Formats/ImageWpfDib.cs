@@ -1,12 +1,8 @@
 ﻿using Clowd.BmpLib;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Media.Imaging;
 
-namespace ClipboardGapWpf.Formats
+namespace Clowd.ClipLib.Formats
 {
     public unsafe class ImageWpfDib : BytesDataConverterBase<BitmapSource>
     {

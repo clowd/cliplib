@@ -1,16 +1,14 @@
-﻿using ClipboardGapWpf.Formats;
+﻿using Clowd.ClipLib.Formats;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
-using System.Runtime.InteropServices.ComTypes;
 using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media.Imaging;
 
-namespace ClipboardGapWpf
+namespace Clowd.ClipLib
 {
     public class ClipboardFormat : IEquatable<ClipboardFormat>
     {
