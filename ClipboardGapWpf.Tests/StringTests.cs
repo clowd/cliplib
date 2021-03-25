@@ -57,10 +57,11 @@ namespace ClipboardGapWpf.Tests
         public void U16toU16_Inline()
         {
             string round;
-            using (var handle = ClipboardHandle.Open())
+            using (var handle = new ClipboardHandle())
             {
+                handle.Open();
                 handle.SetFormat(ClipboardFormat.UnicodeText, _text);
-                round = handle.GetFormat(ClipboardFormat.UnicodeText);
+                round = handle.GetFormatType(ClipboardFormat.UnicodeText);
                 handle.Empty();
             }
             StrCompare(round);
@@ -70,13 +71,15 @@ namespace ClipboardGapWpf.Tests
         public void U16toU16_Break()
         {
             string round;
-            using (var handle = ClipboardHandle.Open())
+            using (var handle = new ClipboardHandle())
             {
+                handle.Open();
                 handle.SetFormat(ClipboardFormat.UnicodeText, _text);
             }
-            using (var handle = ClipboardHandle.Open())
+            using (var handle = new ClipboardHandle())
             {
-                round = handle.GetFormat(ClipboardFormat.UnicodeText);
+                handle.Open();
+                round = handle.GetFormatType(ClipboardFormat.UnicodeText);
                 handle.Empty();
             }
             StrCompare(round);
@@ -87,13 +90,15 @@ namespace ClipboardGapWpf.Tests
         {
             var reference = "Hello, I am a test! :)";
             string round;
-            using (var handle = ClipboardHandle.Open())
+            using (var handle = new ClipboardHandle())
             {
+                handle.Open();
                 handle.SetFormat(ClipboardFormat.Text, reference);
             }
-            using (var handle = ClipboardHandle.Open())
+            using (var handle = new ClipboardHandle())
             {
-                round = handle.GetFormat(ClipboardFormat.UnicodeText);
+                handle.Open();
+                round = handle.GetFormatType(ClipboardFormat.UnicodeText);
                 handle.Empty();
             }
             StrCompare(round, reference);
@@ -104,13 +109,15 @@ namespace ClipboardGapWpf.Tests
         {
             var reference = "Hello, I am a test! :)";
             string round;
-            using (var handle = ClipboardHandle.Open())
+            using (var handle = new ClipboardHandle())
             {
+                handle.Open();
                 handle.SetFormat(ClipboardFormat.UnicodeText, reference);
             }
-            using (var handle = ClipboardHandle.Open())
+            using (var handle = new ClipboardHandle())
             {
-                round = handle.GetFormat(ClipboardFormat.Text);
+                handle.Open();
+                round = handle.GetFormatType(ClipboardFormat.Text);
                 handle.Empty();
             }
             StrCompare(round, reference);

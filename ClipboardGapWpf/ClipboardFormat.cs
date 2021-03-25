@@ -34,11 +34,7 @@ namespace ClipboardGapWpf
             CF_ENHMETAFILE = 14,
             CF_HDROP = 15,
             CF_LOCALE = 16,
-            CF_DIBV5 = 17,
-            CF_PRIVATEFIRST = 0x0200,
-            CF_PRIVATELAST = 0x02FF,
-            CF_GDIOBJFIRST = 0x0300, // a handle allocated by the GlobalAlloc function with the GMEM_MOVEABLE flag. automatically deletes the object using the GlobalFree function.
-            CF_GDIOBJLAST = 0x03FF;
+            CF_DIBV5 = 17;
 
         // STANDARD FORMATS
         public static readonly ClipboardFormat<string> Text = DefaultFormat(CF_TEXT, "Text", new TextAnsi());
@@ -57,7 +53,7 @@ namespace ClipboardGapWpf
         public static readonly ClipboardFormat EnhancedMetafile = DefaultFormat(CF_ENHMETAFILE, "EnhancedMetafile");
         public static readonly ClipboardFormat<string[]> FileDrop = DefaultFormat(CF_HDROP, "FileDrop", new FileDrop());
         public static readonly ClipboardFormat<CultureInfo> Locale = DefaultFormat(CF_LOCALE, "Locale", new Locale());
-        public static readonly ClipboardFormat DibV5 = DefaultFormat(CF_DIBV5, "Format17");
+        public static readonly ClipboardFormat<BitmapSource> DibV5 = DefaultFormat(CF_DIBV5, "Format17", new ImageWpfDibV5());
 
         // CUSTOM FORMATS
         public static readonly ClipboardFormat<string> Html = DefaultFormat("HTML Format", new TextUtf8());
@@ -151,10 +147,15 @@ namespace ClipboardGapWpf
 
     public class ClipboardFormat<T> : ClipboardFormat
     {
-        public IDataConverter<T> ObjectParserTyped { get; }
+        public IDataConverter<T> TypeObjectReader { get; private set; }
         protected ClipboardFormat(uint std, string name, IDataConverter<T> formats) : base(std, name)
         {
-            ObjectParserTyped = formats;
+            TypeObjectReader = formats;
+        }
+
+        public void SetObjectReader(IDataConverter<T> reader)
+        {
+            TypeObjectReader = reader;
         }
     }
 

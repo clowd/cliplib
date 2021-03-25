@@ -53,7 +53,7 @@ namespace ClipboardGapWpf.Formats
             return hglobal;
         }
 
-        public T ReadFromHGlobal(IntPtr hglobal)
+        public virtual T ReadFromHGlobal(IntPtr hglobal)
         {
             var ptr = NativeMethods.GlobalLock(hglobal);
             if (ptr == IntPtr.Zero)
@@ -81,7 +81,7 @@ namespace ClipboardGapWpf.Formats
 
         public abstract T ReadFromHandle(IntPtr ptr, int memSize);
 
-        public T ReadFromHGlobal(IntPtr hglobal)
+        public virtual T ReadFromHGlobal(IntPtr hglobal)
         {
             var ptr = NativeMethods.GlobalLock(hglobal);
             if (ptr == IntPtr.Zero)
@@ -98,7 +98,7 @@ namespace ClipboardGapWpf.Formats
             }
         }
 
-        public IntPtr WriteToHGlobal(T obj)
+        public virtual IntPtr WriteToHGlobal(T obj)
         {
             var size = GetDataSize(obj);
 

@@ -51,62 +51,62 @@ namespace ClipboardGapWpf.Tests
             }
         }
 
-        [TestMethod]
-        public void WPFCheckAll()
-        {
-            var tests = TestImages().ToArray();
+        //[TestMethod]
+        //public void WPFCheckAll()
+        //{
+        //    var tests = TestImages().ToArray();
 
-            MemoryStream ms = new MemoryStream();
-            for (int ir = 0; ir < tests.Length; ir++)
-            {
-                BmpResource resource = (BmpResource)tests[ir];
-                var bytes = resource.Bytes;
+        //    MemoryStream ms = new MemoryStream();
+        //    for (int ir = 0; ir < tests.Length; ir++)
+        //    {
+        //        BmpResource resource = (BmpResource)tests[ir];
+        //        var bytes = resource.Bytes;
 
-                var decoder = new BmpBitmapDecoder(new MemoryStream(bytes), BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
-                var bitmap = decoder.Frames[0];
+        //        var decoder = new BmpBitmapDecoder(new MemoryStream(bytes), BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
+        //        var bitmap = decoder.Frames[0];
 
-                BmpBitmapEncoder encoder = new BmpBitmapEncoder();
-                encoder.Frames.Add(BitmapFrame.Create(bitmap));
+        //        BmpBitmapEncoder encoder = new BmpBitmapEncoder();
+        //        encoder.Frames.Add(BitmapFrame.Create(bitmap));
 
-                ms.SetLength(0);
-                encoder.Save(ms);
+        //        ms.SetLength(0);
+        //        encoder.Save(ms);
 
-                var bytes2 = ms.GetBuffer();
+        //        var bytes2 = ms.GetBuffer();
 
-                var head1 = StructUtil.Deserialize<BITMAPFILEHEADER>(bytes, 0);
-                var head2 = StructUtil.Deserialize<BITMAPFILEHEADER>(bytes2, 0);
+        //        var head1 = StructUtil.Deserialize<BITMAPFILEHEADER>(bytes, 0);
+        //        var head2 = StructUtil.Deserialize<BITMAPFILEHEADER>(bytes2, 0);
 
-                var info1 = StructUtil.Deserialize<BITMAPINFOHEADER>(bytes, 14);
-                var info2 = StructUtil.Deserialize<BITMAPINFOHEADER>(bytes2, 14);
+        //        var info1 = StructUtil.Deserialize<BITMAPINFOHEADER>(bytes, 14);
+        //        var info2 = StructUtil.Deserialize<BITMAPINFOHEADER>(bytes2, 14);
 
-                Assert.AreEqual(head1.bfType, head2.bfType);
-                Assert.AreEqual(head1.bfOffBits, head2.bfOffBits);
-                Assert.AreEqual(head1.bfSize, head2.bfSize);
+        //        Assert.AreEqual(head1.bfType, head2.bfType);
+        //        Assert.AreEqual(head1.bfOffBits, head2.bfOffBits);
+        //        Assert.AreEqual(head1.bfSize, head2.bfSize);
 
-                Assert.AreEqual(info1.bV5Size, info2.bV5Size);
-                Assert.AreEqual(info1.bV5Width, info2.bV5Width);
-                Assert.AreEqual(info1.bV5Height, info2.bV5Height);
-                Assert.AreEqual(info1.bV5Planes, info2.bV5Planes);
-                Assert.AreEqual(info1.bV5BitCount, info2.bV5BitCount);
-                Assert.AreEqual(info1.bV5Compression, info2.bV5Compression);
-                //Assert.AreEqual(info1.bV5SizeImage, info2.bV5SizeImage);
-                Assert.AreEqual(info1.bV5XPelsPerMeter, info2.bV5XPelsPerMeter);
-                Assert.AreEqual(info1.bV5YPelsPerMeter, info2.bV5YPelsPerMeter);
-                Assert.AreEqual(info1.bV5ClrUsed, info2.bV5ClrUsed);
-                //Assert.AreEqual(info1.bV5ClrImportant, info2.bV5ClrImportant);
+        //        Assert.AreEqual(info1.bV5Size, info2.bV5Size);
+        //        Assert.AreEqual(info1.bV5Width, info2.bV5Width);
+        //        Assert.AreEqual(info1.bV5Height, info2.bV5Height);
+        //        Assert.AreEqual(info1.bV5Planes, info2.bV5Planes);
+        //        Assert.AreEqual(info1.bV5BitCount, info2.bV5BitCount);
+        //        Assert.AreEqual(info1.bV5Compression, info2.bV5Compression);
+        //        //Assert.AreEqual(info1.bV5SizeImage, info2.bV5SizeImage);
+        //        Assert.AreEqual(info1.bV5XPelsPerMeter, info2.bV5XPelsPerMeter);
+        //        Assert.AreEqual(info1.bV5YPelsPerMeter, info2.bV5YPelsPerMeter);
+        //        Assert.AreEqual(info1.bV5ClrUsed, info2.bV5ClrUsed);
+        //        //Assert.AreEqual(info1.bV5ClrImportant, info2.bV5ClrImportant);
 
-                Console.WriteLine();
+        //        Console.WriteLine();
 
-                for (uint i = head1.bfOffBits; i < bytes.Length; i++)
-                {
-                    var b1 = bytes[i];
-                    var b2 = bytes2[i];
+        //        for (uint i = head1.bfOffBits; i < bytes.Length; i++)
+        //        {
+        //            var b1 = bytes[i];
+        //            var b2 = bytes2[i];
 
-                    if (b1 != b2)
-                        Assert.Fail($"Position {i}, file '{resource.Name}': Expected {(int)b1}, Actual {(int)b2}");
-                }
+        //            if (b1 != b2)
+        //                Assert.Fail($"Position {i}, file '{resource.Name}': Expected {(int)b1}, Actual {(int)b2}");
+        //        }
 
-            }
-        }
+        //    }
+        //}
     }
 }

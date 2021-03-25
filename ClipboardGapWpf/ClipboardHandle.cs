@@ -1,4 +1,5 @@
 ﻿using ClipboardGapWpf.Formats;
+using Clowd.BmpLib;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -13,47 +14,51 @@ using System.Windows.Media.Imaging;
 
 namespace ClipboardGapWpf
 {
-    public interface IClipboardHandle : IDisposable
-    {
-        // MISC
-        IEnumerable<ClipboardFormat> GetPresentFormats();
-        void Empty();
+    //public interface IClipboardHandle : IDisposable
+    //{
+    //    // MISC
+    //    IEnumerable<ClipboardFormat> GetPresentFormats();
+    //    void Empty();
 
-        // TEXT
-        string GetText();
-        void SetText(string text);
+    //    // TEXT
+    //    string GetText();
+    //    void SetText(string text);
 
-        // IMAGE
-        BitmapSource GetImage();
-        void SetImage(BitmapSource bitmap);
+    //    // IMAGE
+    //    BitmapSource GetImage();
+    //    void SetImage(BitmapSource bitmap);
 
-        // FILE DROP
-        string[] GetFileDropList();
-        void SetFileDropList(string[] files);
+    //    // FILE DROP
+    //    string[] GetFileDropList();
+    //    void SetFileDropList(string[] files);
 
-        // CUSTOM
-        void SetFormat<T>(ClipboardFormat<T> format, T obj);
-        void SetFormat(ClipboardFormat format, byte[] bytes);
-        byte[] GetFormat(ClipboardFormat format);
-        T GetFormat<T>(ClipboardFormat<T> format);
-    }
+    //    // CUSTOM
+    //    void SetFormat<T>(ClipboardFormat<T> format, T obj);
+    //    void SetFormat(ClipboardFormat format, byte[] bytes);
+    //    byte[] GetFormat(ClipboardFormat format);
+    //    T GetFormat<T>(ClipboardFormat<T> format);
+    //}
 
-    public class ClipboardHandle : IClipboardHandle
+    public class ClipboardHandle : IDisposable
     {
         public bool IsDisposed { get; private set; }
 
-        IntPtr _hWindow;
-        short _clsAtom;
-        string _clsName;
+        static readonly IntPtr _hWindow;
+        static readonly short _clsAtom;
+        static readonly string _clsName;
         bool _cleared;
+        bool _isOpen;
 
-        protected ClipboardHandle()
+        private const int RETRY_COUNT = 10;
+        private const int RETRY_DELAY = 100;
+
+        static ClipboardHandle()
         {
             _clsName = "ClipboardGap_" + DateTime.Now.Ticks;
 
             WindowClass wc;
             wc.style = 0;
-            wc.lpfnWndProc = OnWindowMessageReceived;
+            wc.lpfnWndProc = NativeMethods.DefWindowProc;
             wc.cbClsExtra = 0;
             wc.cbWndExtra = 0;
             wc.hInstance = IntPtr.Zero;
@@ -63,6 +68,8 @@ namespace ClipboardGapWpf
             wc.lpszMenuName = "";
             wc.lpszClassName = _clsName;
 
+            // we just create one window for this process, it will be used for all future clipboard handles.
+            // this class will be unregistered when the process exits.
             _clsAtom = NativeMethods.RegisterClass(ref wc);
             if (_clsAtom == 0)
                 throw new Win32Exception();
@@ -70,62 +77,63 @@ namespace ClipboardGapWpf
             _hWindow = NativeMethods.CreateWindowEx(0, _clsName, "", 0, 0, 0, 1, 1, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
             if (_hWindow == IntPtr.Zero)
                 throw new Win32Exception();
-
-            // try a few times to open the clipboard, if we fail, destroy our window and throw with some info about the locking process
-            try
-            {
-                int i = 10;
-                while (true)
-                {
-                    var success = NativeMethods.OpenClipboard(_hWindow);
-                    if (success)
-                        break;
-
-                    if (--i == 0)
-                    {
-                        var hr = Marshal.GetLastWin32Error();
-                        var mex = Marshal.GetExceptionForHR(hr);
-
-                        if (hr == 5)  // ACCESS DENIED
-                        {
-                            IntPtr hwnd = NativeMethods.GetOpenClipboardWindow();
-                            if (hwnd != IntPtr.Zero)
-                            {
-                                uint threadId = NativeMethods.GetWindowThreadProcessId(hwnd, out var processId);
-                                string processName = "Unknown";
-                                try
-                                {
-                                    var p = Process.GetProcessById((int)processId);
-                                    processName = p.ProcessName;
-                                }
-                                catch { }
-
-                                throw new ClipboardBusyException((int)processId, processName, mex);
-
-                            }
-                            else
-                            {
-                                throw new ClipboardBusyException(mex);
-                            }
-                        }
-
-                        throw mex;
-                    }
-
-                    Thread.Sleep(100);
-                }
-            }
-            catch
-            {
-                NativeMethods.DestroyWindow(_hWindow);
-                NativeMethods.UnregisterClass(_clsName, IntPtr.Zero);
-                throw;
-            }
         }
 
-        public static ClipboardHandle Open()
+        protected void ThrowOpenFailed()
         {
-            return new ClipboardHandle();
+            var hr = Marshal.GetLastWin32Error();
+            var mex = Marshal.GetExceptionForHR(hr);
+
+            if (hr == 5)  // ACCESS DENIED
+            {
+                IntPtr hwnd = NativeMethods.GetOpenClipboardWindow();
+                if (hwnd != IntPtr.Zero)
+                {
+                    uint threadId = NativeMethods.GetWindowThreadProcessId(hwnd, out var processId);
+                    string processName = "Unknown";
+                    try
+                    {
+                        var p = Process.GetProcessById((int)processId);
+                        processName = p.ProcessName;
+                    }
+                    catch { }
+
+                    throw new ClipboardBusyException((int)processId, processName, mex);
+
+                }
+                else
+                {
+                    throw new ClipboardBusyException(mex);
+                }
+            }
+
+            throw mex;
+        }
+
+        public void Open()
+        {
+            int i = RETRY_COUNT;
+            while (true)
+            {
+                var success = NativeMethods.OpenClipboard(_hWindow);
+                if (success) break;
+                if (--i == 0) ThrowOpenFailed();
+                Thread.Sleep(RETRY_DELAY);
+            }
+            _isOpen = true;
+        }
+
+        public async Task OpenAsync()
+        {
+            int i = RETRY_COUNT;
+            while (true)
+            {
+                var success = NativeMethods.OpenClipboard(_hWindow);
+                if (success) break;
+                if (--i == 0) ThrowOpenFailed();
+                await Task.Delay(RETRY_DELAY);
+            }
+            _isOpen = true;
         }
 
         public virtual void Empty()
@@ -134,6 +142,7 @@ namespace ClipboardGapWpf
 
             if (!NativeMethods.EmptyClipboard())
                 throw new Win32Exception();
+
             _cleared = true;
         }
 
@@ -157,7 +166,14 @@ namespace ClipboardGapWpf
 
         public virtual string GetText()
         {
-            return GetFormat(ClipboardFormat.UnicodeText);
+            // windows doesn't screw up text like it does with images, so we're OK with windows
+            // giving us a synthesized result here in our preferred format.
+
+            var fmtUni = ClipboardFormat.UnicodeText;
+            if (TryGetFormatObject(fmtUni.Id, fmtUni.TypeObjectReader, out var unicodeText))
+                return unicodeText;
+
+            return null;
         }
 
         public virtual void SetText(string text)
@@ -170,29 +186,61 @@ namespace ClipboardGapWpf
             // Write PNG format as some applications do not support alpha in DIB's and
             // also often will attempt to read PNG format first.
             SetFormat(ClipboardFormat.Png, bitmap);
+            SetFormat(ClipboardFormat.DibV5, bitmap);
             SetFormat(ClipboardFormat.Dib, bitmap);
         }
 
         public virtual BitmapSource GetImage()
         {
-            return GetFormatObject(ClipboardFormat.DibV5.Id, new ImageWpfDibV5());
+            var fmtPng = ClipboardFormat.Png;
+            if (TryGetFormatObject(fmtPng.Id, fmtPng.TypeObjectReader, out var png))
+                if (png != null)
+                    return png;
 
-            return GetFormat(ClipboardFormat.Png)
-                ?? GetFormat(ClipboardFormat.Dib)
-                ?? GetFormatObject(ClipboardFormat.FileDrop.Id, new ImageWpfFileDrop());
+            // Windows has "Synthesized Formats", if you ask for a CF_DIBV5 when there is only a CF_DIB, it will transparently convert
+            // from one format to the other. The issue is, if you ask for a CF_DIBV5 before you ask for a CF_DIB, and the CF_DIB is 
+            // the only real format on the clipboard, windows corrupts the CF_DIB!!! 
+            // One quirk is that windows deterministically puts real formats in the list of present formats before it puts synthesized formats
+            // so even though we can't really tell what is synthesized or not, we can make a guess based on which comes first.
+
+            // TODO: if CF_BITMAP comes first, we really ought to grab that instead...
+
+            foreach (var fmt in GetPresentFormats().Where(f => f is ClipboardFormat<BitmapSource>).Cast<ClipboardFormat<BitmapSource>>())
+                if (fmt == ClipboardFormat.Dib || fmt == ClipboardFormat.DibV5)
+                    if (TryGetFormatObject(fmt.Id, fmt.TypeObjectReader, out var dib))
+                        if (dib != null)
+                            return dib;
+
+            var fmtDrop = ClipboardFormat.FileDrop;
+            if (TryGetFormatObject(fmtDrop.Id, new ImageWpfFileDrop(), out var drop))
+                if (drop != null)
+                    return drop;
+
+            return null;
         }
 
         public virtual string[] GetFileDropList()
         {
-            var drop = GetFormat(ClipboardFormat.FileDrop);
-            if (drop != null)
-                return drop;
+            var fmtDrop = ClipboardFormat.FileDrop;
+            if (TryGetFormatObject(fmtDrop.Id, fmtDrop.TypeObjectReader, out var drop))
+                if (drop != null)
+                    return drop;
+
+            // some native applications still use these, but they are deprecated/discouraged.
 
 #pragma warning disable CS0612 // Type or member is obsolete
-            var legacy = GetFormat(ClipboardFormat.FileNameW) ?? GetFormat(ClipboardFormat.FileName);
-            if (legacy != null)
-                return new[] { legacy };
+            var fmtLegacyW = ClipboardFormat.FileNameW;
+            var fmtLegacyA = ClipboardFormat.FileName;
 #pragma warning restore CS0612 // Type or member is obsolete
+
+
+            if (TryGetFormatObject(fmtLegacyW.Id, fmtLegacyW.TypeObjectReader, out var legacyW))
+                if (legacyW != null)
+                    return new[] { legacyW };
+
+            if (TryGetFormatObject(fmtLegacyA.Id, fmtLegacyA.TypeObjectReader, out var legacyA))
+                if (legacyA != null)
+                    return new[] { legacyA };
 
             return null;
         }
@@ -202,24 +250,74 @@ namespace ClipboardGapWpf
             SetFormat(ClipboardFormat.FileDrop, files);
         }
 
-        public virtual T GetFormat<T>(ClipboardFormat<T> format)
+        public virtual bool TryGetFormatType<T>(ClipboardFormat<T> format, out T value)
         {
-            return GetFormatObject(format.Id, format.ObjectParserTyped);
+            return TryGetFormatObject(format.Id, format.TypeObjectReader, out value);
         }
 
-        public virtual byte[] GetFormat(ClipboardFormat format)
+        public virtual T GetFormatType<T>(ClipboardFormat<T> format)
+        {
+            return GetFormatObject(format.Id, format.TypeObjectReader);
+        }
+
+        public virtual bool TryGetFormatBytes(ClipboardFormat format, out byte[] bytes)
+        {
+            return TryGetFormatObject(format.Id, new BytesDataConverter(), out bytes);
+        }
+
+        public virtual byte[] GetFormatBytes(ClipboardFormat format)
         {
             return GetFormatObject(format.Id, new BytesDataConverter());
         }
 
+        public virtual bool TryGetFormatStream(ClipboardFormat format, out Stream stream)
+        {
+            if (TryGetFormatObject(format.Id, new BytesDataConverter(), out var bytes))
+            {
+                if (bytes != null)
+                {
+                    stream = new MemoryStream(bytes);
+                    return true;
+                }
+            }
+
+            stream = default;
+            return false;
+        }
+
+        public virtual Stream GetFormatStream(ClipboardFormat format)
+        {
+            return new MemoryStream(GetFormatBytes(format));
+        }
+
         public virtual void SetFormat<T>(ClipboardFormat<T> format, T obj)
         {
-            SetFormatObject(format.Id, obj, format.ObjectParserTyped);
+            SetFormatObject(format.Id, obj, format.TypeObjectReader);
         }
 
         public virtual void SetFormat(ClipboardFormat format, byte[] bytes)
         {
             SetFormatObject(format.Id, bytes, new BytesDataConverter());
+        }
+
+        public virtual void SetFormat(ClipboardFormat format, Stream stream)
+        {
+            var bytes = StructUtil.ReadBytes(stream);
+            SetFormatObject(format.Id, bytes, new BytesDataConverter());
+        }
+
+        protected virtual bool TryGetFormatObject<T>(uint format, IDataConverter<T> converter, out T value)
+        {
+            try
+            {
+                value = GetFormatObject(format, converter);
+                return true;
+            }
+            catch
+            {
+                value = default;
+                return false;
+            }
         }
 
         protected virtual T GetFormatObject<T>(uint format, IDataConverter<T> converter)
@@ -273,21 +371,16 @@ namespace ClipboardGapWpf
         {
             if (IsDisposed) return;
             IsDisposed = true;
-
             NativeMethods.CloseClipboard();
-            NativeMethods.DestroyWindow(_hWindow);
-            NativeMethods.UnregisterClass(_clsName, IntPtr.Zero);
         }
 
         protected virtual void ThrowIfDisposed()
         {
+            if (!_isOpen)
+                throw new InvalidOperationException("The clipboard is not yet open, please call Open() or OpenAsync() first.");
+
             if (IsDisposed)
                 throw new ObjectDisposedException(nameof(ClipboardHandle));
-        }
-
-        protected virtual IntPtr OnWindowMessageReceived(IntPtr hwnd, uint messageId, IntPtr wparam, IntPtr lparam)
-        {
-            return NativeMethods.DefWindowProc(hwnd, messageId, wparam, lparam);
         }
     }
 }

@@ -1,0 +1,3 @@
+[submodule "BmpLib"]
+	path = BmpLib
+	url = https://github.com/clowd/BmpLib.git

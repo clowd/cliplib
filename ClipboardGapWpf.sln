@@ -7,10 +7,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClipboardGapWpf", "Clipboar
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleTests", "ConsoleTests\ConsoleTests.csproj", "{B4A08D78-EBC1-4491-B91D-589EE9559800}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinFormsTest", "WinFormsTest\WinFormsTest.csproj", "{A89FF338-0A75-4FF1-BA5D-8A27593D551B}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleTests2", "ConsoleTests2\ConsoleTests2.csproj", "{64F9EFAC-7843-4F17-85A5-AA07FABCC107}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClipboardGapWpf.Tests", "ClipboardGapWpf.Tests\ClipboardGapWpf.Tests.csproj", "{F20A22F3-BAC4-40FC-AF51-C18722615A8C}"
 EndProject
 Global
@@ -27,14 +23,6 @@ Global
 		{B4A08D78-EBC1-4491-B91D-589EE9559800}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B4A08D78-EBC1-4491-B91D-589EE9559800}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B4A08D78-EBC1-4491-B91D-589EE9559800}.Release|Any CPU.Build.0 = Release|Any CPU
-		{A89FF338-0A75-4FF1-BA5D-8A27593D551B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{A89FF338-0A75-4FF1-BA5D-8A27593D551B}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{A89FF338-0A75-4FF1-BA5D-8A27593D551B}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{A89FF338-0A75-4FF1-BA5D-8A27593D551B}.Release|Any CPU.Build.0 = Release|Any CPU
-		{64F9EFAC-7843-4F17-85A5-AA07FABCC107}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{64F9EFAC-7843-4F17-85A5-AA07FABCC107}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{64F9EFAC-7843-4F17-85A5-AA07FABCC107}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{64F9EFAC-7843-4F17-85A5-AA07FABCC107}.Release|Any CPU.Build.0 = Release|Any CPU
 		{F20A22F3-BAC4-40FC-AF51-C18722615A8C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{F20A22F3-BAC4-40FC-AF51-C18722615A8C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F20A22F3-BAC4-40FC-AF51-C18722615A8C}.Release|Any CPU.ActiveCfg = Release|Any CPU

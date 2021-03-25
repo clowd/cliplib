@@ -1,9 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace ClipboardGapWpf
 {
@@ -40,10 +37,10 @@ namespace ClipboardGapWpf
         [DllImport("user32.dll", SetLastError = true)]
         public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
-        [DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Auto, BestFitMapping = false, SetLastError = true)]
+        [DllImport("user32.dll", CharSet = CharSet.Auto, BestFitMapping = false, SetLastError = true)]
         public static extern int GetClipboardFormatName(uint format, StringBuilder lpString, int cchMax);
 
-        [DllImport("user32.dll", SetLastError = true, CharSet = System.Runtime.InteropServices.CharSet.Auto, BestFitMapping = false)]
+        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto, BestFitMapping = false)]
         public static extern uint RegisterClipboardFormat(string format);
 
         [DllImport("user32.dll", EntryPoint = "CreateWindowExW", SetLastError = true)]
@@ -84,6 +81,9 @@ namespace ClipboardGapWpf
 
         [DllImport("user32.dll", SetLastError = true)]
         public static extern uint EnumClipboardFormats(uint format);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern int CountClipboardFormats();
 
         // KERNEL32
 
