@@ -55,9 +55,9 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\ClipboardGapWpf\ClipboardGapWpf.csproj">
+    <ProjectReference Include="..\Clowd.ClipLib\Clowd.ClipLib.csproj">
       <Project>{53be7b55-c23a-46c6-b29b-6b4fa7abda60}</Project>
-      <Name>ClipboardGapWpf</Name>
+      <Name>Clowd.ClipLib</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
