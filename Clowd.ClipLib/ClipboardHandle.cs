@@ -42,6 +42,7 @@ namespace Clowd.ClipLib
     {
         public bool IsDisposed { get; private set; }
 
+        static readonly WindowProcedureHandler _wndProc;
         static readonly IntPtr _hWindow;
         static readonly short _clsAtom;
         static readonly string _clsName;
@@ -53,11 +54,12 @@ namespace Clowd.ClipLib
 
         static ClipboardHandle()
         {
+            _wndProc = NativeMethods.DefWindowProc;
             _clsName = "ClipboardGap_" + DateTime.Now.Ticks;
 
             WindowClass wc;
             wc.style = 0;
-            wc.lpfnWndProc = NativeMethods.DefWindowProc;
+            wc.lpfnWndProc = _wndProc;
             wc.cbClsExtra = 0;
             wc.cbWndExtra = 0;
             wc.hInstance = IntPtr.Zero;
